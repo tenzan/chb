@@ -144,14 +144,16 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
         hideActiveMonitor();
       }
 
-      // Auto-refresh every 10s while any run is active
-      if (activeProductionRun || activeStagingRun) {
-        if (!autoRefreshInterval) {
-          autoRefreshInterval = setInterval(() => loadData(), 5000);
-        }
-      } else if (autoRefreshInterval) {
+      // Poll faster while any run is active, otherwise poll at a relaxed interval
+      const desiredInterval = (activeProductionRun || activeStagingRun) ? 5000 : 15000;
+      if (autoRefreshInterval && autoRefreshInterval._ms !== desiredInterval) {
         clearInterval(autoRefreshInterval);
         autoRefreshInterval = null;
+      }
+      if (!autoRefreshInterval) {
+        const interval = setInterval(() => loadData(), desiredInterval);
+        (interval as any)._ms = desiredInterval;
+        autoRefreshInterval = interval;
       }
     }
 
@@ -252,7 +254,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
         }
 
         btn.textContent = 'Triggered! Waiting...';
-        setTimeout(() => loadData(), 3000);
+        setTimeout(() => { loadData(); (window as any).__checkDeploys?.(); }, 3000);
       } catch {
         alert('Failed to trigger deployment');
       }
@@ -277,7 +279,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
         }
 
         btn.textContent = 'Triggered!';
-        setTimeout(() => loadData(), 3000);
+        setTimeout(() => { loadData(); (window as any).__checkDeploys?.(); }, 3000);
       } catch {
         alert('Failed to trigger redeployment');
         btn.disabled = false;

@@ -116,6 +116,7 @@ const navItems = [
         }
         checkDeploys();
         deployPoll = setInterval(checkDeploys, 10000);
+        (window as any).__checkDeploys = checkDeploys;
       }
 
       // Logout
