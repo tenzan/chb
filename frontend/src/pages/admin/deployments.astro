@@ -34,21 +34,6 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     </div>
   </div>
 
-  <!-- Active Staging Monitor -->
-  <div id="active-staging" class="hidden mb-6">
-    <div class="bg-white rounded-xl border-2 border-blue-300 p-6">
-      <div class="flex items-center justify-between mb-4">
-        <div class="flex items-center gap-3">
-          <div class="w-3 h-3 rounded-full bg-yellow-400 animate-pulse"></div>
-          <span class="text-gray-900 font-medium">Staging deployment in progress</span>
-          <span id="active-staging-run-number" class="text-gray-500 text-sm"></span>
-        </div>
-        <a id="active-staging-gh-link" href="#" target="_blank" class="text-sm text-blue-600 hover:text-blue-500">View on GitHub</a>
-      </div>
-      <div id="active-staging-steps" class="space-y-2"></div>
-    </div>
-  </div>
-
   <!-- Active Production Monitor -->
   <div id="active-deploy" class="hidden mb-6">
     <div class="bg-white rounded-xl border-2 border-blue-300 p-6">
@@ -85,10 +70,8 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
 
   <script>
     let pollingInterval: ReturnType<typeof setInterval> | null = null;
-    let stagingPollingInterval: ReturnType<typeof setInterval> | null = null;
     let autoRefreshInterval: ReturnType<typeof setInterval> | null = null;
     let activeRunId: number | null = null;
-    let activeStagingRunId: number | null = null;
 
     function escapeHtml(str: string) {
       const div = document.createElement('div');
@@ -155,12 +138,6 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
       const activeProductionRun = data.productionRuns.find((r: any) => r.status === 'in_progress' || r.status === 'queued' || r.status === 'waiting');
       const activeStagingRun = data.stagingRuns.find((r: any) => r.status === 'in_progress' || r.status === 'queued' || r.status === 'waiting');
 
-      if (activeStagingRun) {
-        showActiveStagingMonitor(activeStagingRun);
-      } else {
-        hideActiveStagingMonitor();
-      }
-
       if (activeProductionRun) {
         showActiveMonitor(activeProductionRun);
       } else {
@@ -170,7 +147,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
       // Auto-refresh every 10s while any run is active
       if (activeProductionRun || activeStagingRun) {
         if (!autoRefreshInterval) {
-          autoRefreshInterval = setInterval(() => loadData(), 10000);
+          autoRefreshInterval = setInterval(() => loadData(), 5000);
         }
       } else if (autoRefreshInterval) {
         clearInterval(autoRefreshInterval);
@@ -391,51 +368,6 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
           </div>
         ` : '<div class="text-gray-400 text-sm">No step details available yet.</div>'}
       `;
-    }
-
-    function showActiveStagingMonitor(run: any) {
-      const el = document.getElementById('active-staging')!;
-      el.classList.remove('hidden');
-      document.getElementById('active-staging-run-number')!.textContent = `#${run.run_number}`;
-      (document.getElementById('active-staging-gh-link') as HTMLAnchorElement).href = run.html_url || '#';
-      activeStagingRunId = run.id;
-
-      if (!stagingPollingInterval) {
-        stagingPollingInterval = setInterval(async () => {
-          if (!activeStagingRunId) return;
-          const res = await fetch(`/api/admin/deployments/${activeStagingRunId}`);
-          const data = await res.json();
-
-          if (data.status === 'completed') {
-            hideActiveStagingMonitor();
-            loadData();
-            return;
-          }
-
-          const job = data.jobs?.[0];
-          const steps = job?.steps || [];
-          const stepsEl = document.getElementById('active-staging-steps')!;
-
-          if (steps.length > 0) {
-            stepsEl.innerHTML = steps.map((step: any) => `
-              <div class="flex items-center gap-2 text-sm">
-                ${stepIcon(step.status, step.conclusion)}
-                <span class="${step.status === 'in_progress' ? 'text-gray-900' : 'text-gray-500'}">${escapeHtml(step.name)}</span>
-                <span class="text-gray-300 text-xs ml-auto">${step.started_at ? formatDuration(step.started_at, step.completed_at) : ''}</span>
-              </div>
-            `).join('');
-          }
-        }, 5000);
-      }
-    }
-
-    function hideActiveStagingMonitor() {
-      document.getElementById('active-staging')!.classList.add('hidden');
-      activeStagingRunId = null;
-      if (stagingPollingInterval) {
-        clearInterval(stagingPollingInterval);
-        stagingPollingInterval = null;
-      }
     }
 
     function showActiveMonitor(run: any) {
