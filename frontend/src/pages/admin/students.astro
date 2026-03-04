@@ -1,0 +1,28 @@
+---
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import { StudentList } from "../../components/react/StudentList";
+
+const apiUrl = import.meta.env.PUBLIC_API_URL || "http://localhost:8787";
+const cookie = Astro.request.headers.get("cookie") || "";
+
+let students: any[] = [];
+let parents: any[] = [];
+try {
+  const [studentsRes, parentsRes] = await Promise.all([
+    fetch(`${apiUrl}/api/admin/students`, { headers: { Cookie: cookie } }),
+    fetch(`${apiUrl}/api/admin/parents`, { headers: { Cookie: cookie } }),
+  ]);
+  if (studentsRes.ok) {
+    const body = await studentsRes.json();
+    students = body.data;
+  }
+  if (parentsRes.ok) {
+    const body = await parentsRes.json();
+    parents = body.data;
+  }
+} catch {}
+---
+
+<DashboardLayout title="Students">
+  <StudentList client:load students={students} parents={parents} />
+</DashboardLayout>

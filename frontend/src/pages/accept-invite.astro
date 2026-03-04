@@ -1,0 +1,14 @@
+---
+import PublicLayout from "../layouts/PublicLayout.astro";
+import { AcceptInviteForm } from "../components/react/AcceptInviteForm";
+
+const token = Astro.url.searchParams.get("token") || "";
+
+if (!token) {
+  return Astro.redirect("/login");
+}
+---
+
+<PublicLayout title="Accept Invite">
+  <AcceptInviteForm client:load token={token} />
+</PublicLayout>

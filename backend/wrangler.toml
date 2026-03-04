@@ -1,0 +1,18 @@
+name = "chb-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "learning-center-db"
+database_id = "1892f453-237c-4efd-b45f-64a0c79b1be3"
+migrations_dir = "migrations"
+
+# TODO: Enable R2 in Cloudflare Dashboard, then uncomment:
+# [[r2_buckets]]
+# binding = "STORAGE"
+# bucket_name = "learning-center-storage"
+
+[vars]
+BASE_URL = "https://chb-api.askar75.workers.dev"
+# BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_ADMIN_PASSWORD are set via Doppler secrets

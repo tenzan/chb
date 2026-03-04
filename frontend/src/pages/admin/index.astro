@@ -1,0 +1,16 @@
+---
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+
+const user = Astro.locals.user;
+---
+
+<DashboardLayout title="Dashboard">
+  <div class="bg-white rounded-lg border border-gray-200 p-6">
+    <h3 class="text-lg font-medium text-gray-900 mb-2">
+      Welcome, {user?.name}!
+    </h3>
+    <p class="text-gray-600">
+      Use the sidebar to manage users, parents, and students.
+    </p>
+  </div>
+</DashboardLayout>

@@ -1,0 +1,13 @@
+{
+  "name": "learning-center",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["backend", "frontend"],
+  "scripts": {
+    "test": "npm test -w backend && npm test -w frontend",
+    "dev:backend": "npm run dev -w backend",
+    "dev:frontend": "npm run dev -w frontend",
+    "db:migrate:local": "npm run db:migrate:local -w backend",
+    "db:migrate": "npm run db:migrate -w backend"
+  }
+}
