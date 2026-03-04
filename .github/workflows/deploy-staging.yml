@@ -16,28 +16,29 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Install Doppler CLI
+        uses: dopplerhq/cli-action@v3
+
       - run: npm ci
 
       - run: npm test
 
       - name: Run D1 migrations
-        run: npx wrangler d1 migrations apply learning-center-db --remote
+        run: doppler run -- npx wrangler d1 migrations apply learning-center-db --remote
         working-directory: backend
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
 
       - name: Deploy backend Worker (staging)
-        run: cd backend && npx wrangler deploy --env staging
+        run: doppler run -- npx wrangler deploy --env staging
+        working-directory: backend
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
 
       - name: Build frontend
         run: cd frontend && npm run build
 
       - name: Deploy frontend to Cloudflare Pages (staging)
-        run: npx wrangler pages deploy frontend/dist --project-name=chb --branch=main
+        run: doppler run -- npx wrangler pages deploy frontend/dist --project-name=chb --branch=main
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
