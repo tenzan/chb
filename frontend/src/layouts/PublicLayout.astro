@@ -4,7 +4,12 @@ interface Props {
 }
 
 const { title } = Astro.props;
-const apiUrl = import.meta.env.PUBLIC_API_URL || "http://localhost:8787";
+
+const runtime = Astro.locals.runtime;
+const apiUrl = runtime?.env?.PUBLIC_API_URL || import.meta.env.PUBLIC_API_URL || "http://localhost:8787";
+const hostname = Astro.url.hostname;
+const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+const turnstileSiteKey = isLocalhost ? '' : ((runtime?.env as Record<string, string>)?.TURNSTILE_SITE_KEY || '');
 ---
 
 <!doctype html>
@@ -12,10 +17,15 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || "http://localhost:8787";
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{title} - Learning Center</title>
+    <title>{title}</title>
+    {turnstileSiteKey && (
+      <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    )}
   </head>
   <body class="min-h-screen bg-gray-50 flex items-center justify-center">
-    <script define:vars={{ apiUrl }}>window.__API_URL__ = apiUrl;</script>
+    <script define:vars={{ apiUrl }}>
+      window.__API_URL__ = apiUrl;
+    </script>
     <div class="w-full max-w-md p-8">
       <slot />
     </div>

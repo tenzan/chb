@@ -21,7 +21,26 @@ auth.post("/login", async (c) => {
     return c.json({ error: "Invalid email or password" }, 400);
   }
 
-  const { email, password } = parsed.data;
+  const { email, password, turnstileToken } = parsed.data;
+
+  // Verify Turnstile token (skip on localhost)
+  const requestUrl = new URL(c.req.url);
+  const isLocalhost = requestUrl.hostname === "localhost" || requestUrl.hostname === "127.0.0.1";
+  const turnstileSecret = c.env.TURNSTILE_SECRET_KEY;
+  if (turnstileSecret && !isLocalhost) {
+    const verifyRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        secret: turnstileSecret,
+        response: turnstileToken,
+      }),
+    });
+    const verifyData = await verifyRes.json<{ success: boolean }>();
+    if (!verifyData.success) {
+      return c.json({ error: "Captcha verification failed" }, 400);
+    }
+  }
 
   const user = await c.env.DB.prepare(
     "SELECT id, email, name, password_hash, salt FROM users WHERE email = ?"

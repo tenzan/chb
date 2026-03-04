@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getApiUrl } from "../../lib/config";
 import { InviteUserModal } from "./InviteUserModal";
+import { CreateUserModal } from "./CreateUserModal";
 import { EditRolesModal } from "./EditRolesModal";
+import { PendingInvites } from "./PendingInvites";
 
 interface User {
   id: string;
@@ -13,17 +16,34 @@ interface User {
   updated_at: string;
 }
 
-interface Props {
-  users: User[];
-}
-
-export function UserList({ users: initialUsers }: Props) {
-  const [users, setUsers] = useState(initialUsers);
+export function UserList() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [inviteRefreshKey, setInviteRefreshKey] = useState(0);
+
+  const fetchUsers = () => {
+    fetch(`${getApiUrl()}/api/admin/users`, { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((body) => setUsers(body.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   const handleInviteSuccess = () => {
     setShowInvite(false);
+    setInviteRefreshKey((k) => k + 1);
+  };
+
+  const handleCreateSuccess = () => {
+    setShowCreate(false);
+    fetchUsers();
   };
 
   const handleRolesUpdate = (userId: string, newRoles: string[]) => {
@@ -31,16 +51,28 @@ export function UserList({ users: initialUsers }: Props) {
     setEditingUser(null);
   };
 
+  if (loading) {
+    return <p className="text-gray-500">Loading...</p>;
+  }
+
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
         <p className="text-sm text-gray-500">{users.length} users</p>
-        <button
-          onClick={() => setShowInvite(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700"
-        >
-          Invite User
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowCreate(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700"
+          >
+            Create User
+          </button>
+          <button
+            onClick={() => setShowInvite(true)}
+            className="border border-blue-600 text-blue-600 px-4 py-2 rounded-md text-sm hover:bg-blue-50"
+          >
+            Invite User
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -84,10 +116,19 @@ export function UserList({ users: initialUsers }: Props) {
         </table>
       </div>
 
+      <PendingInvites refreshKey={inviteRefreshKey} />
+
       {showInvite && (
         <InviteUserModal
           onClose={() => setShowInvite(false)}
           onSuccess={handleInviteSuccess}
+        />
+      )}
+
+      {showCreate && (
+        <CreateUserModal
+          onClose={() => setShowCreate(false)}
+          onSuccess={handleCreateSuccess}
         />
       )}
 

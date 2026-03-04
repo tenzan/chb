@@ -1,22 +1,8 @@
 ---
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
 import { ParentList } from "../../components/react/ParentList";
-
-const apiUrl = import.meta.env.PUBLIC_API_URL || "http://localhost:8787";
-const cookie = Astro.request.headers.get("cookie") || "";
-
-let parents: any[] = [];
-try {
-  const res = await fetch(`${apiUrl}/api/admin/parents`, {
-    headers: { Cookie: cookie },
-  });
-  if (res.ok) {
-    const body = await res.json();
-    parents = body.data;
-  }
-} catch {}
 ---
 
 <DashboardLayout title="Parents">
-  <ParentList client:load parents={parents} />
+  <ParentList client:load />
 </DashboardLayout>

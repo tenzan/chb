@@ -159,13 +159,54 @@ adminInvites.post("/", requireRole("Admin"), async (c) => {
   ).toISOString();
 
   await c.env.DB.prepare(
-    `INSERT INTO invites (id, email, role_name, token_hash, expires_at, created_by_user_id)
-     VALUES (?, ?, ?, ?, ?, ?)`
+    `INSERT INTO invites (id, email, role_name, token_hash, token, expires_at, created_by_user_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
   )
-    .bind(id, email, roleName, tokenHash, expiresAt, user.id)
+    .bind(id, email, roleName, tokenHash, rawToken, expiresAt, user.id)
     .run();
 
   return c.json({ data: { inviteToken: rawToken } }, 201);
+});
+
+adminInvites.get("/", requireRole("Admin"), async (c) => {
+  const result = await c.env.DB.prepare(
+    `SELECT i.id, i.email, i.role_name, i.token, i.expires_at, i.used_at, i.created_at,
+            u.name AS created_by_name
+     FROM invites i
+     JOIN users u ON i.created_by_user_id = u.id
+     ORDER BY i.created_at DESC`
+  ).all<{
+    id: string;
+    email: string;
+    role_name: string;
+    token: string | null;
+    expires_at: string;
+    used_at: string | null;
+    created_at: string;
+    created_by_name: string;
+  }>();
+
+  return c.json({ data: result.results });
+});
+
+adminInvites.delete("/:id", requireRole("Admin"), async (c) => {
+  const inviteId = c.req.param("id");
+
+  const invite = await c.env.DB.prepare(
+    "SELECT id FROM invites WHERE id = ? AND used_at IS NULL"
+  )
+    .bind(inviteId)
+    .first();
+
+  if (!invite) {
+    return c.json({ error: "Invite not found or already used" }, 404);
+  }
+
+  await c.env.DB.prepare("DELETE FROM invites WHERE id = ?")
+    .bind(inviteId)
+    .run();
+
+  return c.json({ data: { message: "Invite revoked" } });
 });
 
 export default adminInvites;

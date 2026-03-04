@@ -81,9 +81,9 @@ export async function revokeSession(
 }
 
 export function setSessionCookie(token: string): string {
-  return `session=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${SESSION_EXPIRY_DAYS * 24 * 60 * 60}`;
+  return `session=${token}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${SESSION_EXPIRY_DAYS * 24 * 60 * 60}`;
 }
 
 export function clearSessionCookie(): string {
-  return `session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`;
+  return `session=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0`;
 }

@@ -15,4 +15,4 @@ migrations_dir = "migrations"
 
 [vars]
 BASE_URL = "https://chb-api.askar75.workers.dev"
-# BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_ADMIN_PASSWORD are set via Doppler secrets
+# BOOTSTRAP_ADMIN_EMAIL, BOOTSTRAP_ADMIN_PASSWORD, and TURNSTILE_SECRET_KEY are set via Doppler secrets

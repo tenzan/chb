@@ -38,10 +38,8 @@ describe("LoginForm", () => {
     });
     vi.stubGlobal("fetch", mockFetch);
 
-    // Mock window.location
-    const locationAssign = vi.fn();
     Object.defineProperty(window, "location", {
-      value: { href: "", assign: locationAssign },
+      value: { href: "", assign: vi.fn() },
       writable: true,
     });
 

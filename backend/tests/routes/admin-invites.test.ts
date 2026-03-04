@@ -39,14 +39,15 @@ async function createInvite(
     : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
   await env.DB.prepare(
-    `INSERT INTO invites (id, email, role_name, token_hash, expires_at, used_at, created_by_user_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO invites (id, email, role_name, token_hash, token, expires_at, used_at, created_by_user_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(
       id,
       email,
       roleName,
       tokenHash,
+      rawToken,
       expiresAt,
       options.used ? new Date().toISOString() : null,
       createdBy
@@ -276,5 +277,36 @@ describe("POST /api/admin/invites/accept", () => {
     });
 
     expect(res.status).toBe(400);
+  });
+});
+
+describe("GET /api/admin/invites", () => {
+  it("returns list of invites", async () => {
+    const { user, token } = await loginAsAdmin();
+    await createInvite(user.id, "pending@test.com", "Tutor");
+    await createInvite(user.id, "used@test.com", "Admin", { used: true });
+
+    const res = await SELF.fetch("http://localhost/api/admin/invites", {
+      headers: { Cookie: `session=${token}` },
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json() as { data: Array<{ email: string; role_name: string; token: string; used_at: string | null }> };
+    expect(body.data.length).toBe(2);
+    const pending = body.data.find((i) => i.email === "pending@test.com");
+    expect(pending).toBeTruthy();
+    expect(pending!.token).toBeTruthy();
+    expect(pending!.used_at).toBeNull();
+  });
+
+  it("returns 403 for non-Admin", async () => {
+    const user = await createTestUser({ roles: ["Tutor"] });
+    const { token } = await createSession(env.DB, user.id);
+
+    const res = await SELF.fetch("http://localhost/api/admin/invites", {
+      headers: { Cookie: `session=${token}` },
+    });
+
+    expect(res.status).toBe(403);
   });
 });

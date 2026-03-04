@@ -20,6 +20,15 @@ describe("validation schemas", () => {
       expect(result.success).toBe(true);
     });
 
+    it("accepts optional turnstileToken", () => {
+      const result = loginSchema.safeParse({
+        email: "test@example.com",
+        password: "password123",
+        turnstileToken: "token",
+      });
+      expect(result.success).toBe(true);
+    });
+
     it("rejects missing fields", () => {
       expect(loginSchema.safeParse({}).success).toBe(false);
       expect(loginSchema.safeParse({ email: "test@example.com" }).success).toBe(false);
