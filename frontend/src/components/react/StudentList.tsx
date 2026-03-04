@@ -26,6 +26,14 @@ export function StudentList() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredStudents = students.filter((student) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    if (student.name.toLowerCase().includes(q)) return true;
+    return student.parents.some((p) => p.name.toLowerCase().includes(q));
+  });
 
   useEffect(() => {
     Promise.all([
@@ -61,13 +69,35 @@ export function StudentList() {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <p className="text-sm text-gray-500">{students.length} students</p>
+        <p className="text-sm text-gray-500">
+          {searchQuery
+            ? `${filteredStudents.length} of ${students.length} students`
+            : `${students.length} students`}
+        </p>
         <button
           onClick={() => setShowCreate(true)}
           className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700"
         >
           Add Student
         </button>
+      </div>
+
+      <div className="relative mb-4">
+        <input
+          type="text"
+          placeholder="Search by student or parent name..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -81,7 +111,7 @@ export function StudentList() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {students.map((student) => (
+            {filteredStudents.map((student) => (
               <tr key={student.id}>
                 <td className="px-4 py-3 text-sm text-gray-900">{student.name}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{student.birthday || "-"}</td>

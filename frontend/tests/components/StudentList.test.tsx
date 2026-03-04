@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { StudentList } from "../../src/components/react/StudentList";
 
 const students = [
@@ -59,5 +60,65 @@ describe("StudentList", () => {
   it("shows create/edit buttons", async () => {
     render(<StudentList />);
     await waitFor(() => expect(screen.getByRole("button", { name: /add student/i })).toBeInTheDocument());
+  });
+
+  describe("search", () => {
+    it("filters students by name", async () => {
+      const user = userEvent.setup();
+      render(<StudentList />);
+      await waitFor(() => expect(screen.getByText("Student 1")).toBeInTheDocument());
+
+      await user.type(screen.getByPlaceholderText(/search/i), "Student 1");
+
+      expect(screen.getByText("Student 1")).toBeInTheDocument();
+      expect(screen.queryByText("Student 2")).not.toBeInTheDocument();
+    });
+
+    it("filters students by parent name", async () => {
+      const user = userEvent.setup();
+      render(<StudentList />);
+      await waitFor(() => expect(screen.getByText("Student 1")).toBeInTheDocument());
+
+      await user.type(screen.getByPlaceholderText(/search/i), "Parent 1");
+
+      expect(screen.getByText("Student 1")).toBeInTheDocument();
+      expect(screen.queryByText("Student 2")).not.toBeInTheDocument();
+    });
+
+    it("is case-insensitive", async () => {
+      const user = userEvent.setup();
+      render(<StudentList />);
+      await waitFor(() => expect(screen.getByText("Student 1")).toBeInTheDocument());
+
+      await user.type(screen.getByPlaceholderText(/search/i), "student 1");
+
+      expect(screen.getByText("Student 1")).toBeInTheDocument();
+      expect(screen.queryByText("Student 2")).not.toBeInTheDocument();
+    });
+
+    it("shows filtered count", async () => {
+      const user = userEvent.setup();
+      render(<StudentList />);
+      await waitFor(() => expect(screen.getByText("2 students")).toBeInTheDocument());
+
+      await user.type(screen.getByPlaceholderText(/search/i), "Student 1");
+
+      expect(screen.getByText("1 of 2 students")).toBeInTheDocument();
+    });
+
+    it("clears search with X button", async () => {
+      const user = userEvent.setup();
+      render(<StudentList />);
+      await waitFor(() => expect(screen.getByText("Student 1")).toBeInTheDocument());
+
+      await user.type(screen.getByPlaceholderText(/search/i), "Student 1");
+      expect(screen.queryByText("Student 2")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /✕/ }));
+
+      expect(screen.getByText("Student 1")).toBeInTheDocument();
+      expect(screen.getByText("Student 2")).toBeInTheDocument();
+      expect(screen.getByText("2 students")).toBeInTheDocument();
+    });
   });
 });
