@@ -16,3 +16,15 @@ migrations_dir = "migrations"
 [vars]
 BASE_URL = "https://chb-api.askar75.workers.dev"
 # BOOTSTRAP_ADMIN_EMAIL, BOOTSTRAP_ADMIN_PASSWORD, and TURNSTILE_SECRET_KEY are set via Doppler secrets
+
+[env.staging]
+name = "chb-api-staging"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "learning-center-db"
+database_id = "1892f453-237c-4efd-b45f-64a0c79b1be3"
+migrations_dir = "migrations"
+
+[env.staging.vars]
+BASE_URL = "https://chb-api-staging.askar75.workers.dev"

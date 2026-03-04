@@ -1,0 +1,44 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Doppler CLI
+        uses: dopplerhq/cli-action@v3
+
+      - run: npm ci
+
+      - run: npm test
+
+      - name: Run D1 migrations
+        run: doppler run -- npx wrangler d1 migrations apply learning-center-db --remote
+        working-directory: backend
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+
+      - name: Deploy backend Worker (staging)
+        run: doppler run -- npx wrangler deploy --env staging
+        working-directory: backend
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+
+      - name: Build frontend
+        run: cd frontend && npm run build
+
+      - name: Deploy frontend to Cloudflare Pages (staging)
+        run: doppler run -- npx wrangler pages deploy frontend/dist --project-name=chb --branch=main
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
