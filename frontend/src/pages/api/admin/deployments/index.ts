@@ -69,8 +69,8 @@ export const GET: APIRoute = async ({ locals, url }) => {
   ]);
 
   const cfDeployments = cfPages.result || [];
-  const latestCfProduction = cfDeployments.find((d: any) => d.environment === 'production');
-  const latestCfStaging = cfDeployments.find((d: any) => d.environment === 'preview');
+  const latestCfProduction = cfDeployments.find((d: any) => d.environment === 'production' && d.deployment_trigger?.metadata?.branch !== 'staging');
+  const latestCfStaging = cfDeployments.find((d: any) => d.deployment_trigger?.metadata?.branch === 'staging');
 
   let stagingRuns: any[] = [];
   let latestStaging: any = null;

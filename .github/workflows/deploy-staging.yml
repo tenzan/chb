@@ -39,6 +39,6 @@ jobs:
         run: cd frontend && npm run build
 
       - name: Deploy frontend to Cloudflare Pages (staging)
-        run: doppler run -- npx wrangler pages deploy frontend/dist --project-name=chb --branch=main
+        run: doppler run -- npx wrangler pages deploy frontend/dist --project-name=chb --branch=staging
         env:
           DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
