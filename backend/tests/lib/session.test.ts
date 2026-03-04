@@ -113,7 +113,7 @@ describe("session", () => {
       expect(cookie).toContain("session=mytoken123");
       expect(cookie).toContain("HttpOnly");
       expect(cookie).toContain("Secure");
-      expect(cookie).toContain("SameSite=Lax");
+      expect(cookie).toContain("SameSite=None");
       expect(cookie).toContain("Path=/");
     });
 

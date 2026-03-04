@@ -5,6 +5,7 @@ const VALID_ROLES = ["Admin", "Personnel", "Tutor", "Accountant", "Parent"] as c
 export const loginSchema = z.object({
   email: z.string().email().transform((v) => v.toLowerCase()),
   password: z.string().min(1),
+  turnstileToken: z.string().optional().default(""),
 });
 
 export const inviteSchema = z.object({

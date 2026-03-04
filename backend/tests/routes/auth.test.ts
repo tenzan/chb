@@ -24,7 +24,7 @@ describe("POST /api/auth/login", () => {
     const res = await SELF.fetch("http://localhost/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: "login@test.com", password: "password123" }),
+      body: JSON.stringify({ email: "login@test.com", password: "password123", turnstileToken: "test-token" }),
     });
 
     expect(res.status).toBe(200);
@@ -49,7 +49,7 @@ describe("POST /api/auth/login", () => {
     const res = await SELF.fetch("http://localhost/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: "wrong@test.com", password: "wrongpassword" }),
+      body: JSON.stringify({ email: "wrong@test.com", password: "wrongpassword", turnstileToken: "test-token" }),
     });
 
     expect(res.status).toBe(401);
@@ -61,7 +61,7 @@ describe("POST /api/auth/login", () => {
     const res = await SELF.fetch("http://localhost/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: "nonexistent@test.com", password: "password123" }),
+      body: JSON.stringify({ email: "nonexistent@test.com", password: "password123", turnstileToken: "test-token" }),
     });
 
     expect(res.status).toBe(401);

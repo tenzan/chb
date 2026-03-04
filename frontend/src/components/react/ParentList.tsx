@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getApiUrl } from "../../lib/config";
 import { CreateParentModal } from "./CreateParentModal";
 
 interface Parent {
@@ -10,18 +11,27 @@ interface Parent {
   created_at: string;
 }
 
-interface Props {
-  parents: Parent[];
-}
-
-export function ParentList({ parents: initialParents }: Props) {
-  const [parents, setParents] = useState(initialParents);
+export function ParentList() {
+  const [parents, setParents] = useState<Parent[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+
+  useEffect(() => {
+    fetch(`${getApiUrl()}/api/admin/parents`, { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((body) => setParents(body.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleCreate = (newParent: Parent) => {
     setParents([newParent, ...parents]);
     setShowCreate(false);
   };
+
+  if (loading) {
+    return <p className="text-gray-500">Loading...</p>;
+  }
 
   return (
     <div>

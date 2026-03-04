@@ -1,5 +1,4 @@
 import { useState } from "react";
-
 import { getApiUrl } from "../../lib/config";
 
 export function LoginForm() {
@@ -11,6 +10,15 @@ export function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    const turnstileInput = document.querySelector<HTMLInputElement>('[name="cf-turnstile-response"]');
+    const turnstileToken = turnstileInput?.value || "";
+
+    if (!turnstileToken && document.querySelector(".cf-turnstile")) {
+      setError("Please complete the captcha");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -18,13 +26,16 @@ export function LoginForm() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, turnstileToken }),
       });
 
       const body = await res.json();
 
       if (!res.ok) {
         setError(body.error || "Login failed");
+        if (window.turnstile) {
+          window.turnstile.reset();
+        }
         return;
       }
 
@@ -39,7 +50,7 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <h1 className="text-2xl font-bold text-gray-900 text-center mb-6">
-        Learning Center
+        Sign In
       </h1>
 
       {error && (

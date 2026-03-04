@@ -16,6 +16,7 @@ export default defineWorkersConfig({
             BASE_URL: "http://localhost:8787",
             BOOTSTRAP_ADMIN_EMAIL: "admin@test.com",
             BOOTSTRAP_ADMIN_PASSWORD: "TestPassword123!",
+            TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
           },
         },
       },

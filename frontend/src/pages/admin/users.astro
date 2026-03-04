@@ -1,22 +1,8 @@
 ---
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
 import { UserList } from "../../components/react/UserList";
-
-const apiUrl = import.meta.env.PUBLIC_API_URL || "http://localhost:8787";
-const cookie = Astro.request.headers.get("cookie") || "";
-
-let users: any[] = [];
-try {
-  const res = await fetch(`${apiUrl}/api/admin/users`, {
-    headers: { Cookie: cookie },
-  });
-  if (res.ok) {
-    const body = await res.json();
-    users = body.data;
-  }
-} catch {}
 ---
 
 <DashboardLayout title="Users">
-  <UserList client:load users={users} />
+  <UserList client:load />
 </DashboardLayout>

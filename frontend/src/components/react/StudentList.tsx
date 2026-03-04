@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getApiUrl } from "../../lib/config";
 import { CreateStudentModal } from "./CreateStudentModal";
 import { EditStudentModal } from "./EditStudentModal";
 
@@ -19,15 +20,29 @@ interface Parent {
   email: string;
 }
 
-interface Props {
-  students: Student[];
-  parents?: Parent[];
-}
-
-export function StudentList({ students: initialStudents, parents = [] }: Props) {
-  const [students, setStudents] = useState(initialStudents);
+export function StudentList() {
+  const [students, setStudents] = useState<Student[]>([]);
+  const [parents, setParents] = useState<Parent[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`${getApiUrl()}/api/admin/students`, { credentials: "include" }).then((r) =>
+        r.ok ? r.json() : { data: [] }
+      ),
+      fetch(`${getApiUrl()}/api/admin/parents`, { credentials: "include" }).then((r) =>
+        r.ok ? r.json() : { data: [] }
+      ),
+    ])
+      .then(([studentsBody, parentsBody]) => {
+        setStudents(studentsBody.data);
+        setParents(parentsBody.data);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleCreate = (newStudent: Student) => {
     setStudents([newStudent, ...students]);
@@ -38,6 +53,10 @@ export function StudentList({ students: initialStudents, parents = [] }: Props) 
     setStudents(students.map((s) => (s.id === updated.id ? updated : s)));
     setEditingStudent(null);
   };
+
+  if (loading) {
+    return <p className="text-gray-500">Loading...</p>;
+  }
 
   return (
     <div>

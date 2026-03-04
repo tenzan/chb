@@ -1,8 +1,15 @@
 ---
 import PublicLayout from "../layouts/PublicLayout.astro";
 import { LoginForm } from "../components/react/LoginForm";
+
+const hostname = Astro.url.hostname;
+const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+const turnstileSiteKey = isLocalhost ? '' : ((Astro.locals.runtime?.env as Record<string, string>)?.TURNSTILE_SITE_KEY || '');
 ---
 
 <PublicLayout title="Login">
   <LoginForm client:load />
+  {turnstileSiteKey && (
+    <div class="cf-turnstile mt-4 flex justify-center" data-sitekey={turnstileSiteKey}></div>
+  )}
 </PublicLayout>
