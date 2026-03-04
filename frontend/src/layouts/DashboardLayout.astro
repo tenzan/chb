@@ -38,13 +38,16 @@ const navItems = [
           {navItems.map((item) => (
             <a
               href={item.href}
-              class={`block px-3 py-2 rounded-md text-sm font-medium ${
+              class={`flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium ${
                 currentPath === item.href || (item.href !== "/admin" && currentPath.startsWith(item.href))
                   ? "bg-blue-50 text-blue-700"
                   : "text-gray-700 hover:bg-gray-50"
               }`}
             >
               {item.label}
+              {item.href === "/admin/deployments" && (
+                <span id="deploy-indicator" class="hidden w-2.5 h-2.5 rounded-full animate-pulse"></span>
+              )}
             </a>
           ))}
         </nav>
@@ -82,6 +85,36 @@ const navItems = [
         .catch(() => {
           window.location.href = "/login";
         });
+
+      // Deploy status indicator
+      const indicator = document.getElementById("deploy-indicator");
+      if (indicator) {
+        let deployPoll: ReturnType<typeof setInterval> | null = null;
+        async function checkDeploys() {
+          try {
+            const r = await fetch("/api/admin/deployments?limit=5");
+            const d = await r.json();
+            if (d.error) return;
+            const isActive = (run: any) => run && (run.status === "in_progress" || run.status === "queued" || run.status === "waiting");
+            const stagingActive = d.stagingRuns?.some(isActive);
+            const prodActive = d.productionRuns?.some(isActive);
+            const canPromote = d.latestStaging?.conclusion === "success"
+              && (!d.latestProduction?.conclusion || d.latestStaging.head_sha_full !== d.latestProduction.head_sha_full);
+            if (prodActive) {
+              indicator.className = "w-2.5 h-2.5 rounded-full animate-pulse bg-orange-500";
+            } else if (stagingActive) {
+              indicator.className = "w-2.5 h-2.5 rounded-full animate-pulse bg-blue-500";
+            } else if (canPromote) {
+              indicator.className = "w-2.5 h-2.5 rounded-full bg-yellow-400";
+            } else {
+              indicator.className = "hidden w-2.5 h-2.5 rounded-full";
+              if (deployPoll) { clearInterval(deployPoll); deployPoll = null; }
+            }
+          } catch {}
+        }
+        checkDeploys();
+        deployPoll = setInterval(checkDeploys, 10000);
+      }
 
       // Logout
       const btn = document.getElementById("logout-btn");
