@@ -70,6 +70,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
 
   <script>
     let pollingInterval: ReturnType<typeof setInterval> | null = null;
+    let autoRefreshInterval: ReturnType<typeof setInterval> | null = null;
     let activeRunId: number | null = null;
 
     function escapeHtml(str: string) {
@@ -134,11 +135,23 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
       renderProductionCard(data.latestProduction, data.latestStaging, data.cfProductionUrl);
       renderProductionRuns(data.productionRuns);
 
-      const activeRun = data.productionRuns.find((r: any) => r.status === 'in_progress' || r.status === 'queued' || r.status === 'waiting');
-      if (activeRun) {
-        showActiveMonitor(activeRun);
+      const activeProductionRun = data.productionRuns.find((r: any) => r.status === 'in_progress' || r.status === 'queued' || r.status === 'waiting');
+      const activeStagingRun = data.stagingRuns.find((r: any) => r.status === 'in_progress' || r.status === 'queued' || r.status === 'waiting');
+
+      if (activeProductionRun) {
+        showActiveMonitor(activeProductionRun);
       } else {
         hideActiveMonitor();
+      }
+
+      // Auto-refresh every 10s while any run is active
+      if (activeProductionRun || activeStagingRun) {
+        if (!autoRefreshInterval) {
+          autoRefreshInterval = setInterval(() => loadData(), 10000);
+        }
+      } else if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
       }
     }
 
