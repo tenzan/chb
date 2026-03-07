@@ -19,13 +19,6 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     <!-- Role Filter Chips -->
     <div id="role-chips" class="flex gap-2 flex-wrap mb-4">
       <button data-role="All" class="role-chip px-3 py-1 text-sm rounded-full border bg-blue-600 text-white border-blue-600">All</button>
-      <button data-role="Admin" class="role-chip px-3 py-1 text-sm rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50">Admin</button>
-      <button data-role="Personnel" class="role-chip px-3 py-1 text-sm rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50">Personnel</button>
-      <button data-role="Tutor" class="role-chip px-3 py-1 text-sm rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50">Tutor</button>
-      <button data-role="Accountant" class="role-chip px-3 py-1 text-sm rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50">Accountant</button>
-      <button data-role="Parent" class="role-chip px-3 py-1 text-sm rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50">Parent</button>
-      <button data-role="Student" class="role-chip px-3 py-1 text-sm rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50">Student</button>
-      <button data-role="Pending" id="pending-chip" class="hidden role-chip px-3 py-1 text-sm rounded-full border border-amber-400 bg-amber-50 text-amber-800 hover:bg-amber-100">Pending</button>
     </div>
 
     <!-- Search -->
@@ -248,7 +241,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
   const userCountEl = document.getElementById('user-count')!;
   const searchInput = document.getElementById('search-input') as HTMLInputElement;
   const clearSearchBtn = document.getElementById('clear-search')!;
-  const pendingChip = document.getElementById('pending-chip')!;
+  const roleChipsContainer = document.getElementById('role-chips')!;
 
   const createModal = document.getElementById('create-modal')!;
   const createForm = document.getElementById('create-form') as HTMLFormElement;
@@ -319,19 +312,32 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     return filtered;
   }
 
-  function updatePendingChip() {
+  const ALL_ROLES = ['Admin', 'Personnel', 'Tutor', 'Accountant', 'Parent', 'Student'];
+
+  function updateChips() {
+    const rolesInUse = new Set<string>();
+    users.forEach(u => u.roles.forEach((r: string) => rolesInUse.add(r)));
     const pendingCount = users.filter(u => u.status === 'pending').length;
-    if (pendingCount > 0) {
-      pendingChip.classList.remove('hidden');
-      pendingChip.textContent = `Pending (${pendingCount})`;
-    } else {
-      pendingChip.classList.add('hidden');
-      // If currently viewing pending, switch back to All
-      if (activeRole === 'Pending') {
-        activeRole = 'All';
-        updateChipStyles();
-      }
+
+    // If active filter no longer has matching users, reset to All
+    if (activeRole === 'Pending' && pendingCount === 0) {
+      activeRole = 'All';
+    } else if (activeRole !== 'All' && activeRole !== 'Pending' && !rolesInUse.has(activeRole)) {
+      activeRole = 'All';
     }
+
+    const chips: string[] = [];
+    ALL_ROLES.forEach(role => {
+      if (rolesInUse.has(role)) {
+        chips.push(`<button data-role="${role}" class="role-chip px-3 py-1 text-sm rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50">${role}</button>`);
+      }
+    });
+    if (pendingCount > 0) {
+      chips.push(`<button data-role="Pending" class="role-chip px-3 py-1 text-sm rounded-full border border-amber-400 bg-amber-50 text-amber-800 hover:bg-amber-100">Pending (${pendingCount})</button>`);
+    }
+
+    roleChipsContainer.innerHTML = '<button data-role="All" class="role-chip px-3 py-1 text-sm rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50">All</button>' + chips.join('');
+    updateChipStyles();
   }
 
   function renderUsers() {
@@ -436,7 +442,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
       .then(res => res.ok ? res.json() : { data: [] })
       .then(body => {
         users = body.data;
-        updatePendingChip();
+        updateChips();
         renderUsers();
       });
   }
@@ -514,7 +520,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
       if (res.ok) {
         users = users.filter(u => u.id !== userId);
         expandedUserId = null;
-        updatePendingChip();
+        updateChips();
         renderUsers();
       } else {
         btn.textContent = 'Revoke Invite';
