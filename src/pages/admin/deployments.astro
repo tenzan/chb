@@ -1,0 +1,359 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+---
+
+<DashboardLayout title="Deployments">
+  <div class="flex items-center justify-between mb-6">
+    <div></div>
+    <button id="refresh-btn" class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700">
+      <svg id="refresh-icon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M4.49 9A8 8 0 0119.5 7.5L20 9M19.51 15A8 8 0 014.5 16.5L4 15"/>
+      </svg>
+      Refresh
+    </button>
+  </div>
+
+  <!-- Status Overview -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+    <!-- Staging Card -->
+    <div class="bg-white rounded-xl border border-gray-200 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-900">Staging</h2>
+        <span class="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded">Preview</span>
+      </div>
+      <div id="staging-status" class="text-gray-500 text-sm">Loading...</div>
+    </div>
+
+    <!-- Production Card -->
+    <div class="bg-white rounded-xl border border-gray-200 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-900">Production</h2>
+        <span class="px-2 py-1 bg-green-50 text-green-700 text-xs font-medium rounded">Live</span>
+      </div>
+      <div id="production-status" class="text-gray-500 text-sm">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Production Deploy History -->
+  <div class="bg-white rounded-xl border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h2 class="text-lg font-semibold text-gray-900">Production Deploy History</h2>
+    </div>
+    <div id="runs-list">
+      <div class="px-6 py-8 text-center text-gray-400">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Run Detail Panel -->
+  <div id="run-detail" class="hidden mt-6 bg-white rounded-xl border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+      <h2 class="text-lg font-semibold text-gray-900">Deployment Details</h2>
+      <button id="close-detail" class="text-sm text-gray-500 hover:text-gray-700">Close</button>
+    </div>
+    <div id="run-detail-content" class="p-6"></div>
+  </div>
+
+  <script>
+    function escapeHtml(str: string) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function stripProtocol(url: string) {
+      return url.replace(/^https?:\/\//, '');
+    }
+
+    function statusBadge(status: string, conclusion: string | null) {
+      if (status === 'completed') {
+        if (conclusion === 'success') return '<span class="px-2 py-1 rounded text-xs font-medium bg-green-50 text-green-700">Success</span>';
+        if (conclusion === 'failure') return '<span class="px-2 py-1 rounded text-xs font-medium bg-red-50 text-red-700">Failed</span>';
+        if (conclusion === 'cancelled') return '<span class="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600">Cancelled</span>';
+        return `<span class="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600">${conclusion || 'completed'}</span>`;
+      }
+      if (status === 'in_progress') return '<span class="px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 animate-pulse">Running</span>';
+      if (status === 'queued') return '<span class="px-2 py-1 rounded text-xs font-medium bg-yellow-50 text-yellow-700 animate-pulse">Queued</span>';
+      if (status === 'waiting') return '<span class="px-2 py-1 rounded text-xs font-medium bg-yellow-50 text-yellow-700">Waiting</span>';
+      return `<span class="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600">${status}</span>`;
+    }
+
+    function stepIcon(status: string, conclusion: string | null) {
+      if (status === 'completed' && conclusion === 'success') return '<span class="text-green-600">&#10003;</span>';
+      if (status === 'completed' && conclusion === 'failure') return '<span class="text-red-600">&#10007;</span>';
+      if (status === 'completed' && conclusion === 'skipped') return '<span class="text-gray-400">&#8722;</span>';
+      if (status === 'in_progress') return '<span class="text-blue-600 animate-pulse">&#9679;</span>';
+      if (status === 'queued') return '<span class="text-yellow-500">&#9675;</span>';
+      return '<span class="text-gray-400">&#9675;</span>';
+    }
+
+    function formatDuration(start: string, end: string | null) {
+      if (!start) return '';
+      const s = new Date(start).getTime();
+      const e = end ? new Date(end).getTime() : Date.now();
+      const sec = Math.floor((e - s) / 1000);
+      if (sec < 60) return `${sec}s`;
+      const min = Math.floor(sec / 60);
+      return `${min}m ${sec % 60}s`;
+    }
+
+    function formatTime(dateStr: string) {
+      const normalized = dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr.replace(' ', 'T') + 'Z';
+      return new Date(normalized).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function loadData() {
+      const res = await fetch('/api/admin/deployments?limit=15');
+      const json = await res.json();
+
+      if (json.error) {
+        document.getElementById('staging-status')!.innerHTML = `<span class="text-red-600">${escapeHtml(json.error)}</span>`;
+        document.getElementById('production-status')!.innerHTML = `<span class="text-red-600">${escapeHtml(json.error)}</span>`;
+        document.getElementById('runs-list')!.innerHTML = `<div class="px-6 py-8 text-center text-red-600">${escapeHtml(json.error)}</div>`;
+        return;
+      }
+
+      const data = json.data;
+
+      renderStagingCard(data.latestStaging, data.latestProduction, data.cfStagingUrl);
+      renderProductionCard(data.latestProduction, data.latestStaging, data.cfProductionUrl);
+      renderProductionRuns(data.productionRuns);
+    }
+
+    function renderStagingCard(staging: any, production: any, cfUrl: string | null) {
+      const el = document.getElementById('staging-status')!;
+
+      if (!staging) {
+        el.innerHTML = '<p class="text-gray-500">No staging deployments yet.</p><p class="text-gray-400 text-xs mt-2">Push to main to trigger a staging deploy.</p>';
+        return;
+      }
+
+      const isPromoted = production && production.conclusion === 'success' && staging.head_sha_full === production.head_sha_full;
+
+      el.innerHTML = `
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            ${statusBadge(staging.status, staging.conclusion)}
+            ${isPromoted ? '<span class="px-2 py-1 rounded text-xs font-medium bg-green-50 text-green-700">Promoted</span>' : ''}
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-gray-700 font-mono text-sm bg-gray-100 px-1.5 py-0.5 rounded">${staging.head_sha}</span>
+            ${staging.display_title ? `<span class="text-gray-500 text-sm truncate">${escapeHtml(staging.display_title)}</span>` : ''}
+          </div>
+          ${cfUrl ? `<div class="flex items-center gap-1.5"><span class="text-gray-400 text-xs">URL:</span><a href="${cfUrl}" target="_blank" class="text-sm text-blue-600 hover:text-blue-500 truncate">${stripProtocol(cfUrl)} ↗</a></div>` : ''}
+          <div class="text-gray-400 text-xs">${formatTime(staging.created_at)}</div>
+          ${staging.html_url ? `<a href="${staging.html_url}" target="_blank" class="inline-block text-sm text-blue-600 hover:text-blue-500">View on GitHub</a>` : ''}
+        </div>
+      `;
+    }
+
+    function renderProductionCard(production: any, staging: any, cfUrl: string | null) {
+      const el = document.getElementById('production-status')!;
+
+      const productionSucceeded = production && production.conclusion === 'success';
+      const isUpToDate = productionSucceeded && staging && staging.head_sha_full === production.head_sha_full;
+      const canPromote = staging && staging.conclusion === 'success' && !isUpToDate;
+
+      let productionInfo = '';
+      if (production) {
+        productionInfo = `
+          <div class="space-y-3 mb-4">
+            <div class="flex items-center gap-2">
+              ${statusBadge(production.status, production.conclusion)}
+              ${isUpToDate ? '<span class="px-2 py-1 rounded text-xs font-medium bg-green-50 text-green-700">Up to date</span>' : production.conclusion === 'failure' ? '' : '<span class="px-2 py-1 rounded text-xs font-medium bg-yellow-50 text-yellow-700">Update available</span>'}
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-gray-700 font-mono text-sm bg-gray-100 px-1.5 py-0.5 rounded">${production.head_sha}</span>
+              ${production.display_title ? `<span class="text-gray-500 text-sm truncate">${escapeHtml(production.display_title)}</span>` : ''}
+            </div>
+            ${cfUrl ? `<div class="flex items-center gap-1.5"><span class="text-gray-400 text-xs">URL:</span><a href="${cfUrl}" target="_blank" class="text-sm text-blue-600 hover:text-blue-500 truncate">${stripProtocol(cfUrl)} ↗</a></div>` : ''}
+            <div class="text-gray-400 text-xs">${formatTime(production.created_at)}</div>
+          </div>
+        `;
+      } else {
+        productionInfo = '<p class="text-gray-500 mb-4">No production deployments yet.</p>';
+      }
+
+      el.innerHTML = `
+        ${productionInfo}
+        <div class="flex gap-2">
+          <button
+            id="promote-btn"
+            ${canPromote ? '' : 'disabled'}
+            class="flex-1 px-4 py-2 rounded-lg text-sm font-medium ${canPromote ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}"
+          >
+            ${isUpToDate ? 'Production is up to date' : canPromote ? (production && production.conclusion === 'failure' ? 'Retry Production Deploy' : 'Promote Staging to Production') : 'No staging build to promote'}
+          </button>
+          <button
+            id="redeploy-btn"
+            class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 hover:bg-gray-300 text-gray-700"
+          >
+            Redeploy
+          </button>
+        </div>
+      `;
+
+      const btn = document.getElementById('promote-btn');
+      if (btn && canPromote) {
+        btn.addEventListener('click', triggerPromotion);
+      }
+      document.getElementById('redeploy-btn')!.addEventListener('click', triggerRedeploy);
+    }
+
+    async function triggerPromotion() {
+      if (!confirm('Promote staging to production?\n\nThis will run tests, build, deploy backend Worker + frontend Pages, and apply D1 migrations.')) return;
+
+      const btn = document.getElementById('promote-btn') as HTMLButtonElement;
+      btn.disabled = true;
+      btn.textContent = 'Triggering...';
+
+      try {
+        const res = await fetch('/api/admin/deployments', { method: 'POST' });
+        const json = await res.json();
+
+        if (json.error) {
+          alert(json.error + (json.detail ? '\n\n' + json.detail : ''));
+          return;
+        }
+
+        btn.textContent = 'Triggered! Waiting...';
+        setTimeout(() => { loadData(); }, 3000);
+      } catch {
+        alert('Failed to trigger deployment');
+      }
+    }
+
+    async function triggerRedeploy() {
+      if (!confirm('Redeploy production?\n\nThis will re-run the production deploy workflow with the current main branch and latest env vars.')) return;
+
+      const btn = document.getElementById('redeploy-btn') as HTMLButtonElement;
+      btn.disabled = true;
+      btn.textContent = 'Triggering...';
+
+      try {
+        const res = await fetch('/api/admin/deployments', { method: 'POST' });
+        const json = await res.json();
+
+        if (json.error) {
+          alert(json.error + (json.detail ? '\n\n' + json.detail : ''));
+          btn.disabled = false;
+          btn.textContent = 'Redeploy';
+          return;
+        }
+
+        btn.textContent = 'Triggered!';
+        setTimeout(() => { loadData(); }, 3000);
+      } catch {
+        alert('Failed to trigger redeployment');
+        btn.disabled = false;
+        btn.textContent = 'Redeploy';
+      }
+    }
+
+    function renderProductionRuns(runs: any[]) {
+      const el = document.getElementById('runs-list')!;
+
+      if (!runs || runs.length === 0) {
+        el.innerHTML = '<div class="px-6 py-8 text-center text-gray-400">No production deployments yet.</div>';
+        return;
+      }
+
+      el.innerHTML = `
+        <div class="divide-y divide-gray-100">
+          ${runs.map((run: any) => `
+            <div class="px-6 py-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer" onclick="showRunDetail(${run.id})">
+              <div class="flex items-center gap-4 min-w-0">
+                ${statusBadge(run.status, run.conclusion)}
+                <div>
+                  <span class="text-gray-900 font-medium">#${run.run_number}</span>
+                </div>
+                <span class="text-gray-700 font-mono text-sm bg-gray-100 px-1.5 py-0.5 rounded">${run.head_sha}</span>
+                ${run.display_title ? `<span class="text-gray-500 text-sm truncate">${escapeHtml(run.display_title)}</span>` : ''}
+              </div>
+              <div class="flex items-center gap-4 text-sm text-gray-400 shrink-0">
+                <span>${run.triggering_actor || 'unknown'}</span>
+                <span>${formatTime(run.created_at)}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    async function showRunDetail(runId: number) {
+      const panel = document.getElementById('run-detail')!;
+      const content = document.getElementById('run-detail-content')!;
+      panel.classList.remove('hidden');
+      content.innerHTML = '<div class="text-gray-400">Loading...</div>';
+
+      const res = await fetch(`/api/admin/deployments/${runId}`);
+      const json = await res.json();
+
+      if (json.error) {
+        content.innerHTML = `<div class="text-red-600">${escapeHtml(json.error)}</div>`;
+        return;
+      }
+
+      const run = json.data;
+      const job = run.jobs?.[0];
+      const steps = job?.steps || [];
+
+      content.innerHTML = `
+        <div class="flex items-center gap-4 mb-4">
+          ${statusBadge(run.status, run.conclusion)}
+          <span class="text-gray-900 font-medium text-lg">#${run.run_number}</span>
+          <span class="text-gray-700 font-mono text-sm bg-gray-100 px-2 py-0.5 rounded">${run.head_sha}</span>
+          <a href="${run.html_url}" target="_blank" class="text-sm text-blue-600 hover:text-blue-500 ml-auto">View on GitHub</a>
+        </div>
+        <div class="grid grid-cols-3 gap-4 mb-6 text-sm">
+          <div>
+            <div class="text-gray-400">Triggered by</div>
+            <div class="text-gray-900">${run.triggering_actor || 'unknown'}</div>
+          </div>
+          <div>
+            <div class="text-gray-400">Started</div>
+            <div class="text-gray-900">${formatTime(run.created_at)}</div>
+          </div>
+          <div>
+            <div class="text-gray-400">Duration</div>
+            <div class="text-gray-900">${job ? formatDuration(job.started_at, job.completed_at) : '—'}</div>
+          </div>
+        </div>
+        ${steps.length > 0 ? `
+          <div class="text-sm font-medium text-gray-500 mb-2">Steps</div>
+          <div class="bg-gray-50 rounded-lg border border-gray-200 divide-y divide-gray-200">
+            ${steps.map((step: any) => `
+              <div class="px-4 py-2 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  ${stepIcon(step.status, step.conclusion)}
+                  <span class="${step.conclusion === 'failure' ? 'text-red-700' : 'text-gray-700'}">${escapeHtml(step.name)}</span>
+                </div>
+                <span class="text-gray-400 text-xs">${step.started_at ? formatDuration(step.started_at, step.completed_at) : ''}</span>
+              </div>
+            `).join('')}
+          </div>
+        ` : '<div class="text-gray-400 text-sm">No step details available yet.</div>'}
+      `;
+    }
+
+    const refreshBtn = document.getElementById('refresh-btn') as HTMLButtonElement;
+    const refreshIcon = document.getElementById('refresh-icon')!;
+
+    refreshBtn.addEventListener('click', async () => {
+      refreshBtn.disabled = true;
+      refreshIcon.classList.add('animate-spin');
+      try {
+        await loadData();
+      } finally {
+        refreshIcon.classList.remove('animate-spin');
+        refreshBtn.disabled = false;
+      }
+    });
+    document.getElementById('close-detail')!.addEventListener('click', () => {
+      document.getElementById('run-detail')!.classList.add('hidden');
+    });
+
+    (window as any).showRunDetail = showRunDetail;
+
+    loadData();
+  </script>
+</DashboardLayout>

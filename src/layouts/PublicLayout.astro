@@ -1,0 +1,27 @@
+---
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+const hostname = Astro.url.hostname;
+const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+const turnstileSiteKey = isLocalhost ? '' : ((Astro.locals.runtime?.env as Record<string, string>)?.TURNSTILE_SITE_KEY || '');
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    {turnstileSiteKey && (
+      <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    )}
+  </head>
+  <body class="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div class="w-full max-w-md p-8">
+      <slot />
+    </div>
+  </body>
+</html>
