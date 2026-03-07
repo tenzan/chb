@@ -11,6 +11,14 @@ const commitSha = (() => {
   }
 })();
 
+const commitShaFull = (() => {
+  try {
+    return execSync("git rev-parse HEAD").toString().trim();
+  } catch {
+    return "unknown";
+  }
+})();
+
 export default defineConfig({
   output: "server",
   adapter: cloudflare({
@@ -23,6 +31,7 @@ export default defineConfig({
   vite: {
     define: {
       __COMMIT_SHA__: JSON.stringify(commitSha),
+      __COMMIT_SHA_FULL__: JSON.stringify(commitShaFull),
     },
   },
 });

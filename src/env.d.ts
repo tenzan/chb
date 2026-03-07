@@ -1,6 +1,7 @@
 /// <reference path="../.astro/types.d.ts" />
 
 declare const __COMMIT_SHA__: string;
+declare const __COMMIT_SHA_FULL__: string;
 
 type D1Database = import("@cloudflare/workers-types").D1Database;
 

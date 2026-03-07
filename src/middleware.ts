@@ -3,7 +3,6 @@ import { validateSession } from "./lib/session";
 import { bootstrapAdmin } from "./lib/bootstrap";
 
 const PUBLIC_PATHS = [
-  "/",
   "/login",
   "/accept-invite",
   "/api/auth/login",
@@ -29,6 +28,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
   if (!bootstrapped) {
     await bootstrapAdmin(db, env);
     bootstrapped = true;
+  }
+
+  // Redirect root to login
+  if (pathname === "/") {
+    return context.redirect("/login");
   }
 
   // Allow public paths
