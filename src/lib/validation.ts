@@ -6,6 +6,7 @@ const VALID_ROLES = [
   "Tutor",
   "Accountant",
   "Parent",
+  "Student",
 ] as const;
 
 export const loginSchema = z.object({

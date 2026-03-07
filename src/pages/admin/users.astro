@@ -1,8 +1,892 @@
 ---
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
-import { UserList } from '../../components/react/UserList';
 ---
 
 <DashboardLayout title="Users">
-  <UserList client:load />
+  <div>
+    <div class="flex justify-between items-center mb-4">
+      <p id="user-count" class="text-sm text-gray-500">Loading...</p>
+      <div class="flex gap-2">
+        <button id="create-user-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700">
+          Create User
+        </button>
+        <button id="invite-user-btn" class="border border-blue-600 text-blue-600 px-4 py-2 rounded-md text-sm hover:bg-blue-50">
+          Invite User
+        </button>
+      </div>
+    </div>
+
+    <!-- Role Filter Chips -->
+    <div id="role-chips" class="flex gap-2 flex-wrap mb-4">
+      <button data-role="All" class="role-chip px-3 py-1 text-sm rounded-full border bg-blue-600 text-white border-blue-600">All</button>
+      <button data-role="Admin" class="role-chip px-3 py-1 text-sm rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50">Admin</button>
+      <button data-role="Personnel" class="role-chip px-3 py-1 text-sm rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50">Personnel</button>
+      <button data-role="Tutor" class="role-chip px-3 py-1 text-sm rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50">Tutor</button>
+      <button data-role="Accountant" class="role-chip px-3 py-1 text-sm rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50">Accountant</button>
+      <button data-role="Parent" class="role-chip px-3 py-1 text-sm rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50">Parent</button>
+      <button data-role="Student" class="role-chip px-3 py-1 text-sm rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50">Student</button>
+      <button data-role="Pending" id="pending-chip" class="hidden role-chip px-3 py-1 text-sm rounded-full border border-amber-400 bg-amber-50 text-amber-800 hover:bg-amber-100">Pending</button>
+    </div>
+
+    <!-- Search -->
+    <div class="relative mb-4">
+      <input
+        id="search-input"
+        type="text"
+        placeholder="Search by name or email..."
+        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+      <button
+        id="clear-search"
+        class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+      >
+        &#10005;
+      </button>
+    </div>
+
+    <div id="user-table" class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <table class="w-full">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Roles</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+          </tr>
+        </thead>
+        <tbody id="user-rows" class="divide-y divide-gray-200"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Create User Modal -->
+  <div id="create-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <h3 class="text-lg font-semibold mb-4">Create User</h3>
+
+      <form id="create-form" class="space-y-4">
+        <div id="create-error" class="hidden bg-red-50 text-red-700 px-4 py-3 rounded-md text-sm"></div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
+          <div class="space-y-2" id="create-roles">
+            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="create-role" value="Admin" class="text-blue-600" /><span class="text-sm text-gray-700">Admin</span></label>
+            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="create-role" value="Personnel" class="text-blue-600" /><span class="text-sm text-gray-700">Personnel</span></label>
+            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="create-role" value="Tutor" class="text-blue-600" /><span class="text-sm text-gray-700">Tutor</span></label>
+            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="create-role" value="Accountant" class="text-blue-600" /><span class="text-sm text-gray-700">Accountant</span></label>
+            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="create-role" value="Parent" class="text-blue-600" /><span class="text-sm text-gray-700">Parent</span></label>
+            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="create-role" value="Student" class="text-blue-600" /><span class="text-sm text-gray-700">Student</span></label>
+          </div>
+        </div>
+
+        <!-- Common fields -->
+        <div>
+          <label for="create-name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+          <input id="create-name" type="text" required class="w-full px-3 py-2 border border-gray-300 rounded-md" />
+        </div>
+
+        <!-- Staff fields (shown for non-Student roles) -->
+        <div id="create-staff-fields">
+          <div class="space-y-4">
+            <div>
+              <label for="create-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input id="create-email" type="email" class="w-full px-3 py-2 border border-gray-300 rounded-md" />
+            </div>
+            <div>
+              <label for="create-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <input id="create-password" type="password" minlength="6" class="w-full px-3 py-2 border border-gray-300 rounded-md" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Parent fields -->
+        <div id="create-parent-fields" class="hidden space-y-4">
+          <div>
+            <label for="create-phone" class="block text-sm font-medium text-gray-700 mb-1">Phone (optional)</label>
+            <input id="create-phone" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md" />
+          </div>
+        </div>
+
+        <!-- Student fields -->
+        <div id="create-student-fields" class="hidden space-y-4">
+          <div>
+            <label for="create-parent-select" class="block text-sm font-medium text-gray-700 mb-1">Parent</label>
+            <select id="create-parent-select" class="w-full px-3 py-2 border border-gray-300 rounded-md"></select>
+          </div>
+          <div>
+            <label for="create-birthday" class="block text-sm font-medium text-gray-700 mb-1">Birthday (optional)</label>
+            <input id="create-birthday" type="date" class="w-full px-3 py-2 border border-gray-300 rounded-md" />
+          </div>
+          <div>
+            <label for="create-description" class="block text-sm font-medium text-gray-700 mb-1">Description (optional)</label>
+            <textarea id="create-description" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="2"></textarea>
+          </div>
+        </div>
+
+        <!-- Note (common optional) -->
+        <div>
+          <label for="create-note" class="block text-sm font-medium text-gray-700 mb-1">Note (optional)</label>
+          <textarea id="create-note" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="2"></textarea>
+        </div>
+
+        <div class="flex gap-2">
+          <button type="button" id="cancel-create" class="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50">Cancel</button>
+          <button type="submit" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md text-sm hover:bg-blue-700 disabled:opacity-50">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Invite User Modal -->
+  <div id="invite-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md">
+      <h3 class="text-lg font-semibold mb-4">Invite User</h3>
+
+      <!-- Invite Form -->
+      <form id="invite-form" class="space-y-4">
+        <div id="invite-error" class="hidden bg-red-50 text-red-700 px-4 py-3 rounded-md text-sm"></div>
+
+        <div>
+          <label for="invite-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <input id="invite-email" type="email" required class="w-full px-3 py-2 border border-gray-300 rounded-md" />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
+          <div class="space-y-2">
+            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="invite-role" value="Admin" class="text-blue-600" /><span class="text-sm text-gray-700">Admin</span></label>
+            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="invite-role" value="Personnel" class="text-blue-600" /><span class="text-sm text-gray-700">Personnel</span></label>
+            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="invite-role" value="Tutor" class="text-blue-600" /><span class="text-sm text-gray-700">Tutor</span></label>
+            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="invite-role" value="Accountant" class="text-blue-600" /><span class="text-sm text-gray-700">Accountant</span></label>
+          </div>
+        </div>
+
+        <div class="flex gap-2">
+          <button type="button" id="cancel-invite" class="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50">Cancel</button>
+          <button type="submit" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md text-sm hover:bg-blue-700 disabled:opacity-50">Create Invite</button>
+        </div>
+      </form>
+
+      <!-- Invite Success -->
+      <div id="invite-success" class="hidden">
+        <p class="text-sm text-gray-600 mb-2">Invite created! Share this link:</p>
+        <div id="invite-link-display" class="bg-gray-50 p-3 rounded-md text-sm break-all"></div>
+        <div class="flex gap-2 mt-4">
+          <button id="copy-invite-link" class="flex-1 border border-blue-600 text-blue-600 py-2 px-4 rounded-md hover:bg-blue-50">
+            Copy Link
+          </button>
+          <button id="done-invite" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Roles Modal -->
+  <div id="roles-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-sm">
+      <h3 id="roles-title" class="text-lg font-semibold mb-4"></h3>
+
+      <div id="roles-error" class="hidden bg-red-50 text-red-700 px-4 py-3 rounded-md text-sm mb-4"></div>
+
+      <div class="space-y-2 mb-4" id="roles-checkboxes">
+        <label class="flex items-center gap-2"><input type="checkbox" value="Admin" class="rounded border-gray-300" /><span class="text-sm">Admin</span></label>
+        <label class="flex items-center gap-2"><input type="checkbox" value="Personnel" class="rounded border-gray-300" /><span class="text-sm">Personnel</span></label>
+        <label class="flex items-center gap-2"><input type="checkbox" value="Tutor" class="rounded border-gray-300" /><span class="text-sm">Tutor</span></label>
+        <label class="flex items-center gap-2"><input type="checkbox" value="Accountant" class="rounded border-gray-300" /><span class="text-sm">Accountant</span></label>
+        <label class="flex items-center gap-2"><input type="checkbox" value="Parent" class="rounded border-gray-300" /><span class="text-sm">Parent</span></label>
+        <label class="flex items-center gap-2"><input type="checkbox" value="Student" class="rounded border-gray-300" /><span class="text-sm">Student</span></label>
+      </div>
+
+      <div class="flex gap-2">
+        <button id="cancel-roles" class="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50">Cancel</button>
+        <button id="save-roles" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md text-sm hover:bg-blue-700 disabled:opacity-50">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Student Modal -->
+  <div id="edit-student-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md">
+      <h3 class="text-lg font-semibold mb-4">Edit Student</h3>
+
+      <form id="edit-student-form" class="space-y-4">
+        <div id="edit-student-error" class="hidden bg-red-50 text-red-700 px-4 py-3 rounded-md text-sm"></div>
+
+        <div>
+          <label for="edit-student-name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+          <input id="edit-student-name" type="text" required class="w-full px-3 py-2 border border-gray-300 rounded-md" />
+        </div>
+
+        <div>
+          <label for="edit-student-birthday" class="block text-sm font-medium text-gray-700 mb-1">Birthday</label>
+          <input id="edit-student-birthday" type="date" class="w-full px-3 py-2 border border-gray-300 rounded-md" />
+        </div>
+
+        <div>
+          <label for="edit-student-desc" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <textarea id="edit-student-desc" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="2"></textarea>
+        </div>
+
+        <div>
+          <label for="edit-student-note" class="block text-sm font-medium text-gray-700 mb-1">Note</label>
+          <textarea id="edit-student-note" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="2"></textarea>
+        </div>
+
+        <div class="flex gap-2">
+          <button type="button" id="cancel-edit-student" class="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50">Cancel</button>
+          <button type="submit" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md text-sm hover:bg-blue-700 disabled:opacity-50">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </DashboardLayout>
+
+<script>
+  const userTbody = document.getElementById('user-rows')!;
+  const userCountEl = document.getElementById('user-count')!;
+  const searchInput = document.getElementById('search-input') as HTMLInputElement;
+  const clearSearchBtn = document.getElementById('clear-search')!;
+  const pendingChip = document.getElementById('pending-chip')!;
+
+  const createModal = document.getElementById('create-modal')!;
+  const createForm = document.getElementById('create-form') as HTMLFormElement;
+  const createError = document.getElementById('create-error')!;
+  const createSubmitBtn = createForm.querySelector('button[type="submit"]') as HTMLButtonElement;
+
+  const inviteModal = document.getElementById('invite-modal')!;
+  const inviteForm = document.getElementById('invite-form') as HTMLFormElement;
+  const inviteError = document.getElementById('invite-error')!;
+  const inviteSubmitBtn = inviteForm.querySelector('button[type="submit"]') as HTMLButtonElement;
+  const inviteSuccess = document.getElementById('invite-success')!;
+  const inviteLinkDisplay = document.getElementById('invite-link-display')!;
+
+  const rolesModal = document.getElementById('roles-modal')!;
+  const rolesTitle = document.getElementById('roles-title')!;
+  const rolesError = document.getElementById('roles-error')!;
+  const rolesCheckboxes = document.getElementById('roles-checkboxes')!;
+  const saveRolesBtn = document.getElementById('save-roles') as HTMLButtonElement;
+
+  const editStudentModal = document.getElementById('edit-student-modal')!;
+  const editStudentForm = document.getElementById('edit-student-form') as HTMLFormElement;
+  const editStudentError = document.getElementById('edit-student-error')!;
+  const editStudentSubmitBtn = editStudentForm.querySelector('button[type="submit"]') as HTMLButtonElement;
+
+  let users: any[] = [];
+  let activeRole = 'All';
+  let editingUserId: string | null = null;
+  let editingUserOriginalRoles: string[] = [];
+  let editingStudentId: string | null = null;
+  let currentInviteLink = '';
+  let expandedUserId: string | null = null;
+
+  const ROLE_COLORS: Record<string, string> = {
+    Admin: 'bg-red-100 text-red-800',
+    Personnel: 'bg-purple-100 text-purple-800',
+    Tutor: 'bg-green-100 text-green-800',
+    Accountant: 'bg-yellow-100 text-yellow-800',
+    Parent: 'bg-blue-100 text-blue-800',
+    Student: 'bg-orange-100 text-orange-800',
+  };
+
+  function escapeHtml(str: string) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function getFiltered() {
+    let filtered = users;
+
+    // Status filter (Pending chip)
+    if (activeRole === 'Pending') {
+      filtered = filtered.filter(u => u.status === 'pending');
+    } else if (activeRole !== 'All') {
+      // Role filter
+      filtered = filtered.filter(u => u.roles.includes(activeRole));
+    }
+
+    // Search filter
+    const q = searchInput.value.toLowerCase();
+    if (q) {
+      filtered = filtered.filter(u =>
+        u.name.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q)
+      );
+    }
+
+    return filtered;
+  }
+
+  function updatePendingChip() {
+    const pendingCount = users.filter(u => u.status === 'pending').length;
+    if (pendingCount > 0) {
+      pendingChip.classList.remove('hidden');
+      pendingChip.textContent = `Pending (${pendingCount})`;
+    } else {
+      pendingChip.classList.add('hidden');
+      // If currently viewing pending, switch back to All
+      if (activeRole === 'Pending') {
+        activeRole = 'All';
+        updateChipStyles();
+      }
+    }
+  }
+
+  function renderUsers() {
+    const filtered = getFiltered();
+    const q = searchInput.value;
+    const isFiltered = activeRole !== 'All' || q;
+    userCountEl.textContent = isFiltered
+      ? `${filtered.length} of ${users.length} users`
+      : `${users.length} users`;
+    clearSearchBtn.classList.toggle('hidden', !q);
+
+    userTbody.innerHTML = filtered.map(u => {
+      const isExpanded = expandedUserId === u.id;
+      const roleBadges = u.roles.map((r: string) => {
+        const color = ROLE_COLORS[r] || 'bg-gray-100 text-gray-800';
+        return `<span class="inline-block px-2 py-0.5 text-xs font-medium rounded-full ${color}">${escapeHtml(r)}</span>`;
+      }).join('');
+
+      // Status badge for non-active users
+      let statusBadge = '';
+      if (u.status === 'pending') {
+        statusBadge = '<span class="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800">Pending</span>';
+      } else if (u.status === 'suspended') {
+        statusBadge = '<span class="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800">Suspended</span>';
+      }
+
+      const createdDate = new Date(u.created_at).toLocaleDateString();
+
+      let expandedRow = '';
+      if (isExpanded) {
+        const details: string[] = [];
+
+        if (u.phone) details.push(`<div><span class="font-medium text-gray-600">Phone:</span> ${escapeHtml(u.phone)}</div>`);
+        if (u.birthday) details.push(`<div><span class="font-medium text-gray-600">Birthday:</span> ${escapeHtml(u.birthday)}</div>`);
+        if (u.description) details.push(`<div><span class="font-medium text-gray-600">Description:</span> ${escapeHtml(u.description)}</div>`);
+        if (u.note) details.push(`<div><span class="font-medium text-gray-600">Note:</span> ${escapeHtml(u.note)}</div>`);
+
+        if (u.parents && u.parents.length > 0) {
+          const parentNames = u.parents.map((p: any) => `${escapeHtml(p.name)} (${escapeHtml(p.email)})`).join(', ');
+          details.push(`<div><span class="font-medium text-gray-600">Parents:</span> ${parentNames}</div>`);
+        }
+
+        if (details.length === 0) {
+          details.push(`<div class="text-gray-400 italic">No additional details</div>`);
+        }
+
+        // Action buttons
+        const actions: string[] = [];
+        actions.push(`<button data-edit-roles="${u.id}" class="text-sm text-blue-600 hover:text-blue-800">Edit Roles</button>`);
+        if (u.roles.includes('Student')) {
+          actions.push(`<button data-edit-student="${u.id}" class="text-sm text-blue-600 hover:text-blue-800">Edit Student</button>`);
+        }
+        if (u.status === 'pending' && u.inviteId) {
+          actions.push(`<button data-revoke-invite="${u.inviteId}" data-revoke-user="${u.id}" class="text-sm text-red-600 hover:text-red-800">Revoke Invite</button>`);
+        }
+
+        expandedRow = `<tr data-expanded-for="${u.id}">
+          <td colspan="4" class="px-4 pb-4 pt-0 bg-blue-50 border-b border-gray-200">
+            <div class="border-l-3 border-blue-500 pl-4 ml-1 py-1">
+              <div class="flex justify-between items-start">
+                <div class="space-y-1.5 text-sm text-gray-700">${details.join('')}</div>
+                <div class="flex gap-3">${actions.join('')}</div>
+              </div>
+            </div>
+          </td>
+        </tr>`;
+      }
+
+      return `<tr data-user-row="${u.id}" class="group/row cursor-pointer hover:bg-gray-50${isExpanded ? ' bg-blue-50' : ''}">
+        <td class="px-4 py-3 text-sm${isExpanded ? ' font-semibold text-gray-900' : ' text-gray-900'}">${u.name ? escapeHtml(u.name) : '<span class="text-gray-400">\u2014</span>'}${statusBadge ? ' ' + statusBadge : ''}</td>
+        <td class="px-4 py-3 text-sm text-gray-500">
+          <span class="inline-flex items-center gap-1">
+            ${escapeHtml(u.email)}
+            <button data-copy-email="${escapeHtml(u.email)}" class="opacity-0 group-hover/row:opacity-100 transition-opacity text-gray-400 hover:text-gray-600" title="Copy email">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke-width="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke-width="2"/></svg>
+            </button>
+          </span>
+        </td>
+        <td class="px-4 py-3">
+          <div class="flex gap-1 flex-wrap">${roleBadges}</div>
+        </td>
+        <td class="px-4 py-3 text-sm text-gray-500">${createdDate}</td>
+      </tr>${expandedRow}`;
+    }).join('');
+  }
+
+  function updateChipStyles() {
+    document.querySelectorAll('.role-chip').forEach(chip => {
+      const role = (chip as HTMLElement).dataset.role;
+      if (role === activeRole) {
+        chip.className = 'role-chip px-3 py-1 text-sm rounded-full border bg-blue-600 text-white border-blue-600';
+      } else if (role === 'Pending') {
+        chip.className = 'role-chip px-3 py-1 text-sm rounded-full border border-amber-400 bg-amber-50 text-amber-800 hover:bg-amber-100';
+      } else {
+        chip.className = 'role-chip px-3 py-1 text-sm rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50';
+      }
+    });
+  }
+
+  function loadUsers() {
+    fetch('/api/admin/users', { credentials: 'include' })
+      .then(res => res.ok ? res.json() : { data: [] })
+      .then(body => {
+        users = body.data;
+        updatePendingChip();
+        renderUsers();
+      });
+  }
+
+  loadUsers();
+
+  // Role chip click
+  document.getElementById('role-chips')!.addEventListener('click', (e) => {
+    const chip = (e.target as HTMLElement).closest('.role-chip') as HTMLElement | null;
+    if (!chip) return;
+
+    activeRole = chip.dataset.role!;
+    expandedUserId = null;
+    updateChipStyles();
+    renderUsers();
+  });
+
+  // Search
+  searchInput.addEventListener('input', () => {
+    expandedUserId = null;
+    renderUsers();
+  });
+  clearSearchBtn.addEventListener('click', () => {
+    searchInput.value = '';
+    expandedUserId = null;
+    renderUsers();
+  });
+
+  // Row click to expand/collapse
+  userTbody.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+
+    // Handle action buttons - don't toggle row
+    if (target.closest('[data-edit-roles]') || target.closest('[data-edit-student]') || target.closest('[data-copy-email]') || target.closest('[data-revoke-invite]')) {
+      return;
+    }
+
+    const row = target.closest('[data-user-row]') as HTMLElement | null;
+    if (!row) return;
+    const userId = row.dataset.userRow!;
+    expandedUserId = expandedUserId === userId ? null : userId;
+    renderUsers();
+  });
+
+  // Copy email - delegation
+  userTbody.addEventListener('click', async (e) => {
+    const btn = (e.target as HTMLElement).closest('[data-copy-email]') as HTMLElement | null;
+    if (!btn) return;
+    e.stopPropagation();
+    const email = btn.dataset.copyEmail!;
+    await navigator.clipboard.writeText(email);
+    const svg = btn.querySelector('svg')!;
+    const original = svg.outerHTML;
+    svg.outerHTML = '<svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    setTimeout(() => {
+      const tick = btn.querySelector('svg');
+      if (tick) tick.outerHTML = original;
+    }, 1500);
+  });
+
+  // Revoke invite - delegation
+  userTbody.addEventListener('click', async (e) => {
+    const btn = (e.target as HTMLElement).closest('[data-revoke-invite]') as HTMLElement | null;
+    if (!btn) return;
+    e.stopPropagation();
+    const inviteId = btn.dataset.revokeInvite!;
+    const userId = btn.dataset.revokeUser!;
+
+    btn.textContent = 'Revoking...';
+    try {
+      const res = await fetch(`/api/admin/invites/${inviteId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        users = users.filter(u => u.id !== userId);
+        expandedUserId = null;
+        updatePendingChip();
+        renderUsers();
+      } else {
+        btn.textContent = 'Revoke Invite';
+      }
+    } catch {
+      btn.textContent = 'Revoke Invite';
+    }
+  });
+
+  // Edit Roles - delegation on tbody (handles buttons in expanded rows)
+  userTbody.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('[data-edit-roles]') as HTMLElement | null;
+    if (!btn) return;
+    e.stopPropagation();
+    const user = users.find(u => u.id === btn.dataset.editRoles);
+    if (!user) return;
+    editingUserId = user.id;
+    editingUserOriginalRoles = [...user.roles];
+    rolesTitle.textContent = `Edit Roles - ${user.name}`;
+    rolesError.classList.add('hidden');
+    rolesCheckboxes.querySelectorAll('input[type="checkbox"]').forEach((cb: Element) => {
+      (cb as HTMLInputElement).checked = user.roles.includes((cb as HTMLInputElement).value);
+    });
+    rolesModal.classList.remove('hidden');
+  });
+
+  // Edit Student - delegation
+  userTbody.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('[data-edit-student]') as HTMLElement | null;
+    if (!btn) return;
+    e.stopPropagation();
+    const student = users.find(u => u.id === btn.dataset.editStudent);
+    if (!student) return;
+    editingStudentId = student.id;
+    (document.getElementById('edit-student-name') as HTMLInputElement).value = student.name;
+    (document.getElementById('edit-student-birthday') as HTMLInputElement).value = student.birthday || '';
+    (document.getElementById('edit-student-desc') as HTMLTextAreaElement).value = student.description || '';
+    (document.getElementById('edit-student-note') as HTMLTextAreaElement).value = student.note || '';
+    editStudentError.classList.add('hidden');
+    editStudentModal.classList.remove('hidden');
+  });
+
+  // Cancel/Save roles
+  document.getElementById('cancel-roles')!.addEventListener('click', () => {
+    rolesModal.classList.add('hidden');
+    editingUserId = null;
+  });
+
+  saveRolesBtn.addEventListener('click', async () => {
+    if (!editingUserId) return;
+    rolesError.classList.add('hidden');
+    saveRolesBtn.disabled = true;
+    saveRolesBtn.textContent = 'Saving...';
+
+    const selected = Array.from(rolesCheckboxes.querySelectorAll('input[type="checkbox"]:checked'))
+      .map(cb => (cb as HTMLInputElement).value);
+    const add = selected.filter(r => !editingUserOriginalRoles.includes(r));
+    const remove = editingUserOriginalRoles.filter(r => !selected.includes(r));
+
+    if (add.length === 0 && remove.length === 0) {
+      rolesModal.classList.add('hidden');
+      editingUserId = null;
+      saveRolesBtn.disabled = false;
+      saveRolesBtn.textContent = 'Save';
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/users/${editingUserId}/roles`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ add, remove }),
+      });
+
+      const body = await res.json();
+      if (!res.ok) {
+        rolesError.textContent = body.error || 'Failed to update roles';
+        rolesError.classList.remove('hidden');
+        return;
+      }
+
+      users = users.map(u => u.id === editingUserId ? { ...u, roles: body.data.roles } : u);
+      renderUsers();
+      rolesModal.classList.add('hidden');
+      editingUserId = null;
+    } catch {
+      rolesError.textContent = 'Network error';
+      rolesError.classList.remove('hidden');
+    } finally {
+      saveRolesBtn.disabled = false;
+      saveRolesBtn.textContent = 'Save';
+    }
+  });
+
+  // Edit Student form
+  document.getElementById('cancel-edit-student')!.addEventListener('click', () => {
+    editStudentModal.classList.add('hidden');
+    editStudentForm.reset();
+    editStudentError.classList.add('hidden');
+    editingStudentId = null;
+  });
+
+  editStudentForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!editingStudentId) return;
+    editStudentError.classList.add('hidden');
+    editStudentSubmitBtn.disabled = true;
+    editStudentSubmitBtn.textContent = 'Saving...';
+
+    const name = (document.getElementById('edit-student-name') as HTMLInputElement).value;
+    const birthday = (document.getElementById('edit-student-birthday') as HTMLInputElement).value;
+    const description = (document.getElementById('edit-student-desc') as HTMLTextAreaElement).value;
+    const note = (document.getElementById('edit-student-note') as HTMLTextAreaElement).value;
+
+    try {
+      const res = await fetch(`/api/admin/students/${editingStudentId}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          birthday: birthday || undefined,
+          description: description || undefined,
+          note: note || undefined,
+        }),
+      });
+
+      const body = await res.json();
+      if (!res.ok) {
+        editStudentError.textContent = body.error || 'Failed to update student';
+        editStudentError.classList.remove('hidden');
+        return;
+      }
+
+      const existing = users.find(u => u.id === editingStudentId)!;
+      users = users.map(u => u.id === editingStudentId ? { ...u, ...body.data, parents: existing.parents, roles: existing.roles } : u);
+      renderUsers();
+      editStudentModal.classList.add('hidden');
+      editStudentForm.reset();
+      editingStudentId = null;
+    } catch {
+      editStudentError.textContent = 'Network error';
+      editStudentError.classList.remove('hidden');
+    } finally {
+      editStudentSubmitBtn.disabled = false;
+      editStudentSubmitBtn.textContent = 'Save';
+    }
+  });
+
+  // Create User - role-aware form
+  const createStaffFields = document.getElementById('create-staff-fields')!;
+  const createParentFields = document.getElementById('create-parent-fields')!;
+  const createStudentFields = document.getElementById('create-student-fields')!;
+  const createEmailInput = document.getElementById('create-email') as HTMLInputElement;
+  const createPasswordInput = document.getElementById('create-password') as HTMLInputElement;
+
+  // Toggle fields based on selected role
+  createForm.querySelectorAll('input[name="create-role"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      const role = (radio as HTMLInputElement).value;
+      const isStudent = role === 'Student';
+      const isParent = role === 'Parent';
+
+      createStaffFields.classList.toggle('hidden', isStudent);
+      createParentFields.classList.toggle('hidden', !isParent);
+      createStudentFields.classList.toggle('hidden', !isStudent);
+
+      // Email/password required for non-students
+      createEmailInput.required = !isStudent;
+      createPasswordInput.required = !isStudent;
+
+      // Load parents for student creation
+      if (isStudent) {
+        const parentSelect = document.getElementById('create-parent-select') as HTMLSelectElement;
+        const parentUsers = users.filter(u => u.roles.includes('Parent'));
+        parentSelect.innerHTML = parentUsers.map(p =>
+          `<option value="${p.id}">${escapeHtml(p.name)} (${escapeHtml(p.email)})</option>`
+        ).join('');
+      }
+    });
+  });
+
+  document.getElementById('create-user-btn')!.addEventListener('click', () => {
+    createModal.classList.remove('hidden');
+  });
+  document.getElementById('cancel-create')!.addEventListener('click', () => {
+    createModal.classList.add('hidden');
+    createForm.reset();
+    createError.classList.add('hidden');
+    // Reset field visibility
+    createStaffFields.classList.remove('hidden');
+    createParentFields.classList.add('hidden');
+    createStudentFields.classList.add('hidden');
+    createEmailInput.required = true;
+    createPasswordInput.required = true;
+  });
+
+  createForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    createError.classList.add('hidden');
+
+    const selectedRole = (createForm.querySelector('input[name="create-role"]:checked') as HTMLInputElement | null)?.value;
+    if (!selectedRole) {
+      createError.textContent = 'Please select a role';
+      createError.classList.remove('hidden');
+      return;
+    }
+
+    createSubmitBtn.disabled = true;
+    createSubmitBtn.textContent = 'Creating...';
+
+    const name = (document.getElementById('create-name') as HTMLInputElement).value;
+    const note = (document.getElementById('create-note') as HTMLTextAreaElement).value;
+
+    try {
+      if (selectedRole === 'Student') {
+        // Create student via students API
+        const parentUserId = (document.getElementById('create-parent-select') as HTMLSelectElement).value;
+        const birthday = (document.getElementById('create-birthday') as HTMLInputElement).value;
+        const description = (document.getElementById('create-description') as HTMLTextAreaElement).value;
+
+        const res = await fetch('/api/admin/students', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            parentUserId,
+            birthday: birthday || undefined,
+            description: description || undefined,
+            note: note || undefined,
+          }),
+        });
+
+        const body = await res.json();
+        if (!res.ok) {
+          createError.textContent = body.error || 'Failed to create student';
+          createError.classList.remove('hidden');
+          return;
+        }
+
+        // Reload all users to get full data
+        createModal.classList.add('hidden');
+        createForm.reset();
+        createStaffFields.classList.remove('hidden');
+        createParentFields.classList.add('hidden');
+        createStudentFields.classList.add('hidden');
+        createEmailInput.required = true;
+        createPasswordInput.required = true;
+        loadUsers();
+      } else if (selectedRole === 'Parent') {
+        // Create parent via parents API
+        const email = createEmailInput.value;
+        const password = createPasswordInput.value;
+        const phone = (document.getElementById('create-phone') as HTMLInputElement).value;
+
+        const res = await fetch('/api/admin/parents', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, name, phone: phone || undefined, note: note || undefined }),
+        });
+
+        const body = await res.json();
+        if (!res.ok) {
+          createError.textContent = body.error || 'Failed to create parent';
+          createError.classList.remove('hidden');
+          return;
+        }
+
+        createModal.classList.add('hidden');
+        createForm.reset();
+        createStaffFields.classList.remove('hidden');
+        createParentFields.classList.add('hidden');
+        createStudentFields.classList.add('hidden');
+        loadUsers();
+      } else {
+        // Create staff user via users API
+        const email = createEmailInput.value;
+        const password = createPasswordInput.value;
+
+        const res = await fetch('/api/admin/users', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, name, password, roles: [selectedRole], note: note || undefined }),
+        });
+
+        const body = await res.json();
+        if (!res.ok) {
+          createError.textContent = body.error || 'Failed to create user';
+          createError.classList.remove('hidden');
+          return;
+        }
+
+        createModal.classList.add('hidden');
+        createForm.reset();
+        loadUsers();
+      }
+    } catch {
+      createError.textContent = 'Network error';
+      createError.classList.remove('hidden');
+    } finally {
+      createSubmitBtn.disabled = false;
+      createSubmitBtn.textContent = 'Create';
+    }
+  });
+
+  // Invite User
+  document.getElementById('invite-user-btn')!.addEventListener('click', () => {
+    inviteForm.classList.remove('hidden');
+    inviteSuccess.classList.add('hidden');
+    inviteModal.classList.remove('hidden');
+  });
+  document.getElementById('cancel-invite')!.addEventListener('click', () => {
+    inviteModal.classList.add('hidden');
+    inviteForm.reset();
+    inviteError.classList.add('hidden');
+  });
+
+  inviteForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    inviteError.classList.add('hidden');
+
+    const roleName = (inviteForm.querySelector('input[name="invite-role"]:checked') as HTMLInputElement | null)?.value;
+    if (!roleName) {
+      inviteError.textContent = 'Please select a role';
+      inviteError.classList.remove('hidden');
+      return;
+    }
+
+    inviteSubmitBtn.disabled = true;
+    inviteSubmitBtn.textContent = 'Creating...';
+
+    const email = (document.getElementById('invite-email') as HTMLInputElement).value;
+
+    try {
+      const res = await fetch('/api/admin/invites', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, roleName }),
+      });
+
+      const body = await res.json();
+      if (!res.ok) {
+        inviteError.textContent = body.error || 'Failed to create invite';
+        inviteError.classList.remove('hidden');
+        return;
+      }
+
+      currentInviteLink = `${window.location.origin}/accept-invite?token=${body.data.inviteToken}`;
+      inviteLinkDisplay.textContent = currentInviteLink;
+      inviteForm.classList.add('hidden');
+      inviteSuccess.classList.remove('hidden');
+    } catch {
+      inviteError.textContent = 'Network error';
+      inviteError.classList.remove('hidden');
+    } finally {
+      inviteSubmitBtn.disabled = false;
+      inviteSubmitBtn.textContent = 'Create Invite';
+    }
+  });
+
+  document.getElementById('copy-invite-link')!.addEventListener('click', () => {
+    navigator.clipboard.writeText(currentInviteLink);
+  });
+
+  document.getElementById('done-invite')!.addEventListener('click', () => {
+    inviteModal.classList.add('hidden');
+    inviteForm.reset();
+    loadUsers();
+  });
+</script>

@@ -24,7 +24,12 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   }
 
   const existing = await db
-    .prepare("SELECT id FROM students WHERE id = ?")
+    .prepare(
+      `SELECT u.id FROM users u
+       JOIN user_roles ur ON u.id = ur.user_id
+       JOIN roles r ON ur.role_id = r.id
+       WHERE u.id = ? AND r.name = 'Student'`
+    )
     .bind(studentId)
     .first();
   if (!existing) {
@@ -58,14 +63,14 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   if (setClauses.length > 0) {
     setClauses.push("updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')");
     await db
-      .prepare(`UPDATE students SET ${setClauses.join(", ")} WHERE id = ?`)
+      .prepare(`UPDATE users SET ${setClauses.join(", ")} WHERE id = ?`)
       .bind(...values, studentId)
       .run();
   }
 
   const student = await db
     .prepare(
-      "SELECT id, name, birthday, description, note, created_at, updated_at FROM students WHERE id = ?"
+      "SELECT id, name, birthday, description, note, created_at, updated_at FROM users WHERE id = ?"
     )
     .bind(studentId)
     .first<{

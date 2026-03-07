@@ -25,7 +25,30 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
     );
   }
 
+  // Get the invite email before deleting
+  const inviteData = await db
+    .prepare("SELECT email FROM invites WHERE id = ?")
+    .bind(inviteId)
+    .first<{ email: string }>();
+
   await db.prepare("DELETE FROM invites WHERE id = ?").bind(inviteId).run();
+
+  // If there's a pending user with this email and no other active invites, delete the pending user
+  if (inviteData) {
+    const otherInvite = await db
+      .prepare(
+        "SELECT id FROM invites WHERE email = ? AND used_at IS NULL AND expires_at > datetime('now')"
+      )
+      .bind(inviteData.email)
+      .first();
+
+    if (!otherInvite) {
+      await db
+        .prepare("DELETE FROM users WHERE email = ? AND status = 'pending'")
+        .bind(inviteData.email)
+        .run();
+    }
+  }
 
   return new Response(
     JSON.stringify({ data: { message: "Invite revoked" } }),

@@ -16,7 +16,6 @@ const TABLES = [
   'sessions',
   'invites',
   'parent_students',
-  'students',
   'user_roles',
   'users',
   'roles',

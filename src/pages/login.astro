@@ -1,6 +1,5 @@
 ---
 import PublicLayout from "../layouts/PublicLayout.astro";
-import { LoginForm } from "../components/react/LoginForm";
 
 const hostname = Astro.url.hostname;
 const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
@@ -8,8 +7,100 @@ const turnstileSiteKey = isLocalhost ? '' : ((Astro.locals.runtime?.env as Recor
 ---
 
 <PublicLayout title="Login">
-  <LoginForm client:load />
+  <form id="login-form" class="space-y-4">
+    <h1 class="text-2xl font-bold text-gray-900 text-center mb-6">
+      Sign In
+    </h1>
+
+    <div id="error" class="hidden bg-red-50 text-red-700 px-4 py-3 rounded-md text-sm"></div>
+
+    <div>
+      <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
+        Email
+      </label>
+      <input
+        id="email"
+        type="email"
+        required
+        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+
+    <div>
+      <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
+        Password
+      </label>
+      <input
+        id="password"
+        type="password"
+        required
+        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+
+    <button
+      type="submit"
+      class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+    >
+      Log in
+    </button>
+  </form>
+
   {turnstileSiteKey && (
     <div class="cf-turnstile mt-4 flex justify-center" data-sitekey={turnstileSiteKey}></div>
   )}
 </PublicLayout>
+
+<script>
+  const form = document.getElementById('login-form')!;
+  const errorEl = document.getElementById('error')!;
+  const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorEl.classList.add('hidden');
+
+    const turnstileInput = document.querySelector<HTMLInputElement>('[name="cf-turnstile-response"]');
+    const turnstileToken = turnstileInput?.value || '';
+
+    if (!turnstileToken && document.querySelector('.cf-turnstile')) {
+      errorEl.textContent = 'Please complete the captcha';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Logging in...';
+
+    const email = (document.getElementById('email') as HTMLInputElement).value;
+    const password = (document.getElementById('password') as HTMLInputElement).value;
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, turnstileToken }),
+      });
+
+      const body = await res.json();
+
+      if (!res.ok) {
+        errorEl.textContent = body.error || 'Login failed';
+        errorEl.classList.remove('hidden');
+        if ((window as any).turnstile) {
+          (window as any).turnstile.reset();
+        }
+        return;
+      }
+
+      window.location.href = '/admin';
+    } catch {
+      errorEl.textContent = 'Network error';
+      errorEl.classList.remove('hidden');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Log in';
+    }
+  });
+</script>

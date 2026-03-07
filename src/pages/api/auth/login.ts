@@ -48,7 +48,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const user = await db
     .prepare(
-      "SELECT id, email, name, password_hash, salt FROM users WHERE email = ?"
+      "SELECT id, email, name, password_hash, salt, status FROM users WHERE email = ?"
     )
     .bind(email)
     .first<{
@@ -57,12 +57,27 @@ export const POST: APIRoute = async ({ request, locals }) => {
       name: string;
       password_hash: string | null;
       salt: string | null;
+      status: string;
     }>();
 
   if (!user || !user.password_hash || !user.salt) {
     return new Response(
       JSON.stringify({ error: "Invalid email or password" }),
       { status: 401, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  if (user.status === "suspended") {
+    return new Response(
+      JSON.stringify({ error: "Account is suspended" }),
+      { status: 403, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  if (user.status === "pending") {
+    return new Response(
+      JSON.stringify({ error: "Account is not yet active" }),
+      { status: 403, headers: { "Content-Type": "application/json" } }
     );
   }
 

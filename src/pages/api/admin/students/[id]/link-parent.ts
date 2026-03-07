@@ -24,7 +24,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 
   const existing = await db
     .prepare(
-      "SELECT parent_user_id FROM parent_students WHERE parent_user_id = ? AND student_id = ?"
+      "SELECT parent_id FROM parent_students WHERE parent_id = ? AND student_id = ?"
     )
     .bind(parentUserId, studentId)
     .first();
@@ -38,7 +38,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 
   await db
     .prepare(
-      "INSERT INTO parent_students (parent_user_id, student_id) VALUES (?, ?)"
+      "INSERT INTO parent_students (parent_id, student_id) VALUES (?, ?)"
     )
     .bind(parentUserId, studentId)
     .run();

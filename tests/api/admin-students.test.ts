@@ -18,8 +18,24 @@ async function createParent(email: string = "parent@test.com") {
   });
 }
 
+async function createStudent(name: string, parentId: string, extra: { birthday?: string; description?: string; note?: string } = {}) {
+  const db = getTestDB();
+  const id = crypto.randomUUID();
+
+  await db
+    .prepare("INSERT INTO users (id, email, name, birthday, description, note) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(id, `${id}@student.local`, name, extra.birthday || null, extra.description || null, extra.note || null)
+    .run();
+
+  const role = await db.prepare("SELECT id FROM roles WHERE name = 'Student'").first<{ id: number }>();
+  await db.prepare("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)").bind(id, role!.id).run();
+  await db.prepare("INSERT INTO parent_students (parent_id, student_id) VALUES (?, ?)").bind(parentId, id).run();
+
+  return { id, name };
+}
+
 describe("POST /api/admin/students", () => {
-  it("creates student linked to parent", async () => {
+  it("creates student as user with Student role linked to parent", async () => {
     await seedRoles();
     const db = getTestDB();
     await createTestUser({ id: "admin-1", email: "admin@test.com", name: "Admin", roles: ["Admin"] });
@@ -34,13 +50,24 @@ describe("POST /api/admin/students", () => {
     const res = await POST(ctx);
 
     expect(res.status).toBe(201);
-    const body = await res.json() as { data: { name: string; parentUserId: string } };
+    const body = await res.json() as { data: { id: string; name: string; parentUserId: string } };
     expect(body.data.name).toBe("Student Name");
     expect(body.data.parentUserId).toBe(parent.id);
 
+    // Student should be in users table with Student role
+    const user = await db.prepare("SELECT id, name FROM users WHERE id = ?").bind(body.data.id).first();
+    expect(user).not.toBeNull();
+
+    const role = await db
+      .prepare("SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = ?")
+      .bind(body.data.id)
+      .first<{ name: string }>();
+    expect(role!.name).toBe("Student");
+
+    // Parent-student link should exist
     const link = await db
-      .prepare("SELECT * FROM parent_students WHERE parent_user_id = ?")
-      .bind(parent.id)
+      .prepare("SELECT * FROM parent_students WHERE parent_id = ? AND student_id = ?")
+      .bind(parent.id, body.data.id)
       .first();
     expect(link).not.toBeNull();
   });
@@ -101,10 +128,7 @@ describe("GET /api/admin/students", () => {
     const db = getTestDB();
     await createTestUser({ id: "admin-1", email: "admin@test.com", name: "Admin", roles: ["Admin"] });
     const parent = await createParent();
-
-    const studentId = crypto.randomUUID();
-    await db.prepare("INSERT INTO students (id, name) VALUES (?, ?)").bind(studentId, "Test Student").run();
-    await db.prepare("INSERT INTO parent_students (parent_user_id, student_id) VALUES (?, ?)").bind(parent.id, studentId).run();
+    await createStudent("Test Student", parent.id);
 
     const ctx = createMockAPIContext({ db, user: adminUser });
     const res = await GET(ctx);
@@ -124,12 +148,8 @@ describe("GET /api/admin/students", () => {
     const parent1 = await createParent("parent1@test.com");
     const parent2 = await createParent("parent2@test.com");
 
-    const s1 = crypto.randomUUID();
-    const s2 = crypto.randomUUID();
-    await db.prepare("INSERT INTO students (id, name) VALUES (?, ?)").bind(s1, "Student 1").run();
-    await db.prepare("INSERT INTO students (id, name) VALUES (?, ?)").bind(s2, "Student 2").run();
-    await db.prepare("INSERT INTO parent_students (parent_user_id, student_id) VALUES (?, ?)").bind(parent1.id, s1).run();
-    await db.prepare("INSERT INTO parent_students (parent_user_id, student_id) VALUES (?, ?)").bind(parent2.id, s2).run();
+    await createStudent("Student 1", parent1.id);
+    await createStudent("Student 2", parent2.id);
 
     const ctx = createMockAPIContext({
       db,
@@ -150,15 +170,14 @@ describe("PATCH /api/admin/students/:id", () => {
     await seedRoles();
     const db = getTestDB();
     await createTestUser({ id: "admin-1", email: "admin@test.com", name: "Admin", roles: ["Admin"] });
-
-    const studentId = crypto.randomUUID();
-    await db.prepare("INSERT INTO students (id, name) VALUES (?, ?)").bind(studentId, "Original Name").run();
+    const parent = await createParent();
+    const student = await createStudent("Original Name", parent.id);
 
     const ctx = createMockAPIContext({
       db,
       user: adminUser,
       method: "PATCH",
-      params: { id: studentId },
+      params: { id: student.id },
       body: { name: "Updated Name", note: "Some note" },
     });
     const res = await PATCH(ctx);
@@ -192,16 +211,15 @@ describe("POST /api/admin/students/:id/link-parent", () => {
     const db = getTestDB();
     await createTestUser({ id: "admin-1", email: "admin@test.com", name: "Admin", roles: ["Admin"] });
     const parent = await createParent();
-
-    const studentId = crypto.randomUUID();
-    await db.prepare("INSERT INTO students (id, name) VALUES (?, ?)").bind(studentId, "Student").run();
+    const parent2 = await createParent("parent2@test.com");
+    const student = await createStudent("Student", parent.id);
 
     const ctx = createMockAPIContext({
       db,
       user: adminUser,
       method: "POST",
-      params: { id: studentId },
-      body: { parentUserId: parent.id },
+      params: { id: student.id },
+      body: { parentUserId: parent2.id },
     });
     const res = await linkParentHandler(ctx);
 
@@ -213,16 +231,13 @@ describe("POST /api/admin/students/:id/link-parent", () => {
     const db = getTestDB();
     await createTestUser({ id: "admin-1", email: "admin@test.com", name: "Admin", roles: ["Admin"] });
     const parent = await createParent();
-
-    const studentId = crypto.randomUUID();
-    await db.prepare("INSERT INTO students (id, name) VALUES (?, ?)").bind(studentId, "Student").run();
-    await db.prepare("INSERT INTO parent_students (parent_user_id, student_id) VALUES (?, ?)").bind(parent.id, studentId).run();
+    const student = await createStudent("Student", parent.id);
 
     const ctx = createMockAPIContext({
       db,
       user: adminUser,
       method: "POST",
-      params: { id: studentId },
+      params: { id: student.id },
       body: { parentUserId: parent.id },
     });
     const res = await linkParentHandler(ctx);

@@ -1,7 +1,6 @@
 import { defineConfig } from "astro/config";
 import { execSync } from "node:child_process";
 import cloudflare from "@astrojs/cloudflare";
-import react from "@astrojs/react";
 import tailwind from "@astrojs/tailwind";
 
 const commitSha = (() => {
@@ -20,15 +19,10 @@ export default defineConfig({
       configPath: "wrangler.dev.toml",
     },
   }),
-  integrations: [react(), tailwind()],
+  integrations: [tailwind()],
   vite: {
     define: {
       __COMMIT_SHA__: JSON.stringify(commitSha),
-    },
-    resolve: {
-      alias: {
-        "react-dom/server": "react-dom/server.edge",
-      },
     },
   },
 });

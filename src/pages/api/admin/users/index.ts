@@ -16,7 +16,7 @@ export const GET: APIRoute = async ({ locals }) => {
   const db = getDB(locals);
   const result = await db
     .prepare(
-      `SELECT u.id, u.email, u.name, u.phone, u.note, u.created_at, u.updated_at
+      `SELECT u.id, u.email, u.name, u.phone, u.birthday, u.description, u.note, u.status, u.created_at, u.updated_at
        FROM users u
        ORDER BY u.created_at DESC`
     )
@@ -25,7 +25,10 @@ export const GET: APIRoute = async ({ locals }) => {
       email: string;
       name: string;
       phone: string | null;
+      birthday: string | null;
+      description: string | null;
       note: string | null;
+      status: string;
       created_at: string;
       updated_at: string;
     }>();
@@ -38,10 +41,36 @@ export const GET: APIRoute = async ({ locals }) => {
         )
         .bind(u.id)
         .all<{ name: string }>();
-      return {
-        ...u,
-        roles: rolesResult.results.map((r) => r.name),
-      };
+
+      const roles = rolesResult.results.map((r) => r.name);
+
+      // For students, fetch linked parents
+      let parents: Array<{ id: string; name: string; email: string }> = [];
+      if (roles.includes("Student")) {
+        const parentsResult = await db
+          .prepare(
+            `SELECT u.id, u.name, u.email FROM users u
+             JOIN parent_students ps ON u.id = ps.parent_id
+             WHERE ps.student_id = ?`
+          )
+          .bind(u.id)
+          .all<{ id: string; name: string; email: string }>();
+        parents = parentsResult.results;
+      }
+
+      // For pending users, fetch the active invite ID
+      let inviteId: string | undefined;
+      if (u.status === "pending") {
+        const invite = await db
+          .prepare(
+            "SELECT id FROM invites WHERE email = ? AND used_at IS NULL AND expires_at > datetime('now') LIMIT 1"
+          )
+          .bind(u.email)
+          .first<{ id: string }>();
+        if (invite) inviteId = invite.id;
+      }
+
+      return { ...u, roles, parents, ...(inviteId ? { inviteId } : {}) };
     })
   );
 

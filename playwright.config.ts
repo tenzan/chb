@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
+  globalSetup: "./tests/e2e/global-setup.ts",
   testDir: "./tests/e2e",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
@@ -8,7 +9,7 @@ export default defineConfig({
   workers: 1,
   reporter: "html",
   use: {
-    baseURL: "http://localhost:4321",
+    baseURL: "http://localhost:4322",
     trace: "on-first-retry",
   },
   projects: [
@@ -18,8 +19,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
-    port: 4321,
-    reuseExistingServer: !process.env.CI,
+    command: "astro dev --port 4322",
+    port: 4322,
+    reuseExistingServer: false,
   },
 });

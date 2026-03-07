@@ -74,6 +74,57 @@ describe("POST /api/auth/login", () => {
     expect(body.error).toBe("Invalid email or password");
   });
 
+  it("rejects suspended user", async () => {
+    await seedRoles();
+    const db = getTestDB();
+    const { hash, salt } = await hashPassword("password123");
+    await createTestUser({
+      email: "suspended@test.com",
+      name: "Suspended",
+      passwordHash: hash,
+      salt,
+      roles: ["Tutor"],
+    });
+    // Suspend the user
+    await db.prepare("UPDATE users SET status = 'suspended' WHERE email = ?").bind("suspended@test.com").run();
+
+    const ctx = createMockAPIContext({
+      db,
+      method: "POST",
+      body: { email: "suspended@test.com", password: "password123", turnstileToken: "test-token" },
+    });
+    const res = await loginHandler(ctx);
+
+    expect(res.status).toBe(403);
+    const body = await res.json() as { error: string };
+    expect(body.error).toBe("Account is suspended");
+  });
+
+  it("rejects pending user", async () => {
+    await seedRoles();
+    const db = getTestDB();
+    const { hash, salt } = await hashPassword("password123");
+    await createTestUser({
+      email: "pending@test.com",
+      name: "Pending",
+      passwordHash: hash,
+      salt,
+      roles: ["Tutor"],
+    });
+    await db.prepare("UPDATE users SET status = 'pending' WHERE email = ?").bind("pending@test.com").run();
+
+    const ctx = createMockAPIContext({
+      db,
+      method: "POST",
+      body: { email: "pending@test.com", password: "password123", turnstileToken: "test-token" },
+    });
+    const res = await loginHandler(ctx);
+
+    expect(res.status).toBe(403);
+    const body = await res.json() as { error: string };
+    expect(body.error).toBe("Account is not yet active");
+  });
+
   it("validation error for missing fields", async () => {
     const ctx = createMockAPIContext({
       db: getTestDB(),
