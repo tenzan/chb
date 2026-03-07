@@ -25,5 +25,10 @@ export default defineConfig({
     define: {
       __COMMIT_SHA__: JSON.stringify(commitSha),
     },
+    resolve: {
+      alias: {
+        "react-dom/server": "react-dom/server.edge",
+      },
+    },
   },
 });
