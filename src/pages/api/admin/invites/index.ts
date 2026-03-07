@@ -98,6 +98,33 @@ export const POST: APIRoute = async ({ request, locals }) => {
     .bind(id, email, roleName, tokenHash, rawToken, expiresAt, user.id)
     .run();
 
+  // Create a pending user if one doesn't already exist
+  const existingUser = await db
+    .prepare("SELECT id FROM users WHERE email = ?")
+    .bind(email)
+    .first<{ id: string }>();
+
+  if (!existingUser) {
+    const pendingUserId = generateId();
+    await db
+      .prepare(
+        `INSERT INTO users (id, email, name, status) VALUES (?, ?, ?, 'pending')`
+      )
+      .bind(pendingUserId, email, "")
+      .run();
+
+    const role = await db
+      .prepare("SELECT id FROM roles WHERE name = ?")
+      .bind(roleName)
+      .first<{ id: number }>();
+    if (role) {
+      await db
+        .prepare("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)")
+        .bind(pendingUserId, role.id)
+        .run();
+    }
+  }
+
   return new Response(
     JSON.stringify({ data: { inviteToken: rawToken } }),
     { status: 201, headers: { "Content-Type": "application/json" } }

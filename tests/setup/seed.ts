@@ -2,7 +2,7 @@ import { getTestDB } from './test-env';
 
 export async function seedRoles() {
   const db = getTestDB();
-  const roles = ['Admin', 'Personnel', 'Tutor', 'Accountant', 'Parent'];
+  const roles = ['Admin', 'Personnel', 'Tutor', 'Accountant', 'Parent', 'Student'];
   for (const role of roles) {
     await db
       .prepare('INSERT OR IGNORE INTO roles (name) VALUES (?)')

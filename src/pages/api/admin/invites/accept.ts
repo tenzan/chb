@@ -50,9 +50,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
       const { hash, salt } = await hashPassword(password);
       await db
         .prepare(
-          "UPDATE users SET password_hash = ?, salt = ?, name = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?"
+          "UPDATE users SET password_hash = ?, salt = ?, name = ?, status = 'active', updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?"
         )
         .bind(hash, salt, name, userId)
+        .run();
+    } else {
+      // Existing user with password — just ensure active
+      await db
+        .prepare(
+          "UPDATE users SET status = 'active', updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?"
+        )
+        .bind(userId)
         .run();
     }
   } else {
@@ -60,7 +68,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const { hash, salt } = await hashPassword(password);
     await db
       .prepare(
-        `INSERT INTO users (id, email, password_hash, salt, name) VALUES (?, ?, ?, ?, ?)`
+        `INSERT INTO users (id, email, password_hash, salt, name, status) VALUES (?, ?, ?, ?, ?, 'active')`
       )
       .bind(userId, invite.email, hash, salt, name)
       .run();

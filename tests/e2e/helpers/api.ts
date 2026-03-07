@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:4321";
+const BASE_URL = "http://localhost:4322";
 
 export async function bootstrapAdmin(): Promise<{
   email: string;
@@ -53,7 +53,7 @@ export async function getSessionCookie(): Promise<{
 
 export async function createParentViaApi(
   sessionToken: string,
-  data: { email: string; name: string }
+  data: { email: string; name: string; phone?: string }
 ): Promise<{ id: string; email: string; name: string }> {
   const res = await fetch(`${BASE_URL}/api/admin/parents`, {
     method: "POST",
