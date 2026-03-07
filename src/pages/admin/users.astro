@@ -1,0 +1,8 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import { UserList } from '../../components/react/UserList';
+---
+
+<DashboardLayout title="Users">
+  <UserList client:load />
+</DashboardLayout>
