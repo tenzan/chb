@@ -13,6 +13,7 @@ let mf: Miniflare;
 let db: D1Database;
 
 const TABLES = [
+  'subjects',
   'sessions',
   'invites',
   'parent_students',

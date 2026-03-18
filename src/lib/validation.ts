@@ -62,6 +62,16 @@ export const manageRolesSchema = z.object({
   remove: z.array(z.enum(VALID_ROLES)).default([]),
 });
 
+export const createSubjectSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+});
+
+export const updateSubjectSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().optional(),
+});
+
 export const createUserSchema = z.object({
   email: z
     .string()
