@@ -3,6 +3,9 @@
 declare const __COMMIT_SHA__: string;
 declare const __COMMIT_SHA_FULL__: string;
 
+declare function __t(key: string, params?: Record<string, string>): string;
+declare const __i18n: Record<string, any>;
+
 type D1Database = import("@cloudflare/workers-types").D1Database;
 
 type Runtime = import("@astrojs/cloudflare").Runtime<{

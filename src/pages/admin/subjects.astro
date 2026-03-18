@@ -1,13 +1,16 @@
 ---
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import { getLocale, t } from '../../i18n';
+
+const locale = getLocale(Astro.cookies.get('lang')?.value);
 ---
 
-<DashboardLayout title="Subjects">
+<DashboardLayout title={t(locale, 'nav.subjects')}>
   <div>
     <div class="flex justify-between items-center mb-4">
-      <p id="subject-count" class="text-sm text-gray-500">Loading...</p>
+      <p id="subject-count" class="text-sm text-gray-500">{t(locale, 'common.loading')}</p>
       <button id="add-subject-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700">
-        Add Subject
+        {t(locale, 'subjects.addSubject')}
       </button>
     </div>
 
@@ -15,10 +18,10 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
       <table class="w-full">
         <thead class="bg-gray-50">
           <tr>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-1/5">Name</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-[120px]">Created</th>
-            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-[180px]">Actions</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-1/5">{t(locale, 'common.name')}</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t(locale, 'common.description')}</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-[120px]">{t(locale, 'common.created')}</th>
+            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-[180px]">{t(locale, 'common.actions')}</th>
           </tr>
         </thead>
         <tbody id="subject-rows" class="divide-y divide-gray-200"></tbody>
@@ -29,24 +32,24 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
   <!-- Add/Edit Subject Modal -->
   <div id="subject-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
     <div class="bg-white rounded-lg p-6 w-full max-w-md">
-      <h3 id="modal-title" class="text-lg font-semibold mb-4">Add Subject</h3>
+      <h3 id="modal-title" class="text-lg font-semibold mb-4">{t(locale, 'subjects.addSubject')}</h3>
 
       <form id="subject-form" class="space-y-4">
         <div id="subject-error" class="hidden bg-red-50 text-red-700 px-4 py-3 rounded-md text-sm"></div>
 
         <div>
-          <label for="subject-name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+          <label for="subject-name" class="block text-sm font-medium text-gray-700 mb-1">{t(locale, 'common.name')}</label>
           <input id="subject-name" type="text" required class="w-full px-3 py-2 border border-gray-300 rounded-md" />
         </div>
 
         <div>
-          <label for="subject-description" class="block text-sm font-medium text-gray-700 mb-1">Description (optional)</label>
+          <label for="subject-description" class="block text-sm font-medium text-gray-700 mb-1">{t(locale, 'subjects.descriptionOptional')}</label>
           <textarea id="subject-description" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="3"></textarea>
         </div>
 
         <div class="flex gap-2">
-          <button type="button" id="cancel-subject" class="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50">Cancel</button>
-          <button type="submit" id="submit-subject" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md text-sm hover:bg-blue-700 disabled:opacity-50">Save</button>
+          <button type="button" id="cancel-subject" class="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50">{t(locale, 'common.cancel')}</button>
+          <button type="submit" id="submit-subject" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md text-sm hover:bg-blue-700 disabled:opacity-50">{t(locale, 'common.save')}</button>
         </div>
       </form>
     </div>
@@ -55,12 +58,12 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
   <!-- Delete Confirmation Modal -->
   <div id="delete-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
     <div class="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl">
-      <h3 class="text-lg font-semibold text-gray-900 mb-2">Delete Subject</h3>
+      <h3 class="text-lg font-semibold text-gray-900 mb-2">{t(locale, 'subjects.deleteSubject')}</h3>
       <p id="delete-message" class="text-sm text-gray-600 mb-4"></p>
       <div id="delete-error" class="hidden bg-red-50 text-red-700 px-4 py-3 rounded-md text-sm mb-4"></div>
       <div class="flex gap-2">
-        <button id="cancel-delete" class="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50">Cancel</button>
-        <button id="confirm-delete" class="flex-1 bg-red-600 text-white py-2 px-4 rounded-md text-sm hover:bg-red-700 disabled:opacity-50">Delete</button>
+        <button id="cancel-delete" class="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50">{t(locale, 'common.cancel')}</button>
+        <button id="confirm-delete" class="flex-1 bg-red-600 text-white py-2 px-4 rounded-md text-sm hover:bg-red-700 disabled:opacity-50">{t(locale, 'common.delete')}</button>
       </div>
     </div>
   </div>
@@ -94,10 +97,13 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
   }
 
   function renderSubjects() {
-    countEl.textContent = `${subjects.length} subject${subjects.length !== 1 ? 's' : ''}`;
+    const count = subjects.length;
+    countEl.textContent = count === 1
+      ? __t('subjects.subjectCountOne', { count: '1' })
+      : __t('subjects.subjectCount', { count: String(count) });
 
     if (subjects.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-sm text-gray-500">No subjects yet. Click "Add Subject" to create one.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-sm text-gray-500">${escapeHtml(__t('subjects.noSubjects'))}</td></tr>`;
       return;
     }
 
@@ -109,8 +115,8 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
         <td class="px-4 py-3 text-sm text-gray-500">${created}</td>
         <td class="px-4 py-3 text-sm">
           <div class="flex justify-end gap-2">
-            <button data-edit="${s.id}" class="px-3 py-1.5 border border-blue-300 text-blue-700 bg-blue-50 rounded-md text-xs font-medium hover:bg-blue-100">Edit</button>
-            <button data-delete="${s.id}" class="px-3 py-1.5 border border-red-300 text-red-700 bg-red-50 rounded-md text-xs font-medium hover:bg-red-100">Delete</button>
+            <button data-edit="${s.id}" class="px-3 py-1.5 border border-blue-300 text-blue-700 bg-blue-50 rounded-md text-xs font-medium hover:bg-blue-100">${escapeHtml(__t('common.edit'))}</button>
+            <button data-delete="${s.id}" class="px-3 py-1.5 border border-red-300 text-red-700 bg-red-50 rounded-md text-xs font-medium hover:bg-red-100">${escapeHtml(__t('common.delete'))}</button>
           </div>
         </td>
       </tr>`;
@@ -131,8 +137,8 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
   // Add Subject
   document.getElementById('add-subject-btn')!.addEventListener('click', () => {
     editingId = null;
-    modalTitle.textContent = 'Add Subject';
-    submitBtn.textContent = 'Save';
+    modalTitle.textContent = __t('subjects.addSubject');
+    submitBtn.textContent = __t('common.save');
     nameInput.value = '';
     descInput.value = '';
     subjectError.classList.add('hidden');
@@ -148,8 +154,8 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     if (!subject) return;
 
     editingId = subject.id;
-    modalTitle.textContent = 'Edit Subject';
-    submitBtn.textContent = 'Save';
+    modalTitle.textContent = __t('subjects.editSubject');
+    submitBtn.textContent = __t('common.save');
     nameInput.value = subject.name;
     descInput.value = subject.description || '';
     subjectError.classList.add('hidden');
@@ -165,7 +171,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     if (!subject) return;
 
     deletingId = subject.id;
-    deleteMessage.textContent = `Are you sure you want to delete "${subject.name}"?`;
+    deleteMessage.textContent = __t('subjects.confirmDelete', { name: subject.name });
     deleteError.classList.add('hidden');
     deleteModal.classList.remove('hidden');
   });
@@ -185,7 +191,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     e.preventDefault();
     subjectError.classList.add('hidden');
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Saving...';
+    submitBtn.textContent = __t('common.saving');
 
     const name = nameInput.value.trim();
     const description = descInput.value.trim();
@@ -204,7 +210,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
 
       const body = await res.json();
       if (!res.ok) {
-        subjectError.textContent = body.error || 'Failed to save subject';
+        subjectError.textContent = body.error || __t('subjects.failedSave');
         subjectError.classList.remove('hidden');
         return;
       }
@@ -213,11 +219,11 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
       subjectForm.reset();
       loadSubjects();
     } catch {
-      subjectError.textContent = 'Network error';
+      subjectError.textContent = __t('common.networkError');
       subjectError.classList.remove('hidden');
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Save';
+      submitBtn.textContent = __t('common.save');
     }
   });
 
@@ -226,7 +232,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     if (!deletingId) return;
     deleteError.classList.add('hidden');
     confirmDeleteBtn.disabled = true;
-    confirmDeleteBtn.textContent = 'Deleting...';
+    confirmDeleteBtn.textContent = __t('common.deleting');
 
     try {
       const res = await fetch(`/api/admin/subjects/${deletingId}`, {
@@ -236,7 +242,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
 
       if (!res.ok) {
         const body = await res.json();
-        deleteError.textContent = body.error || 'Failed to delete subject';
+        deleteError.textContent = body.error || __t('subjects.failedDelete');
         deleteError.classList.remove('hidden');
         return;
       }
@@ -246,11 +252,11 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
       deletingId = null;
       renderSubjects();
     } catch {
-      deleteError.textContent = 'Network error';
+      deleteError.textContent = __t('common.networkError');
       deleteError.classList.remove('hidden');
     } finally {
       confirmDeleteBtn.disabled = false;
-      confirmDeleteBtn.textContent = 'Delete';
+      confirmDeleteBtn.textContent = __t('common.delete');
     }
   });
 </script>
