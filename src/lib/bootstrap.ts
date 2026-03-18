@@ -31,7 +31,7 @@ export async function bootstrapAdmin(
 
   await db
     .prepare(
-      `INSERT INTO users (id, email, password_hash, salt, name) VALUES (?, ?, ?, ?, ?)`
+      `INSERT OR IGNORE INTO users (id, email, password_hash, salt, name) VALUES (?, ?, ?, ?, ?)`
     )
     .bind(id, email, hash, salt, "Admin")
     .run();

@@ -5,8 +5,8 @@ export async function bootstrapAdmin(): Promise<{
   password: string;
 }> {
   return {
-    email: "admin@test.com",
-    password: "TestPassword123!",
+    email: "askar75@gmail.com",
+    password: "draJAMU7",
   };
 }
 
