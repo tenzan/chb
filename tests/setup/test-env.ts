@@ -13,6 +13,7 @@ let mf: Miniflare;
 let db: D1Database;
 
 const TABLES = [
+  'password_reset_tokens',
   'subjects',
   'sessions',
   'invites',

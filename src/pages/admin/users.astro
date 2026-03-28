@@ -202,6 +202,23 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
     </div>
   </div>
 
+  <!-- Reset Password Modal -->
+  <div id="reset-password-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md">
+      <h3 class="text-lg font-semibold mb-4">Password Reset Link</h3>
+      <p class="text-sm text-gray-600 mb-2">Share this link with the user. It expires in 1 hour.</p>
+      <div id="reset-link-display" class="bg-gray-50 p-3 rounded-md text-sm break-all"></div>
+      <div class="flex gap-2 mt-4">
+        <button id="copy-reset-link" class="flex-1 border border-blue-600 text-blue-600 py-2 px-4 rounded-md hover:bg-blue-50">
+          Copy Link
+        </button>
+        <button id="done-reset" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Edit Student Modal -->
   <div id="edit-student-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
     <div class="bg-white rounded-lg p-6 w-full max-w-md">
@@ -273,6 +290,9 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
   let activeRole = 'All';
   let editingUserId: string | null = null;
   let editingUserOriginalRoles: string[] = [];
+  const resetPasswordModal = document.getElementById('reset-password-modal')!;
+  const resetLinkDisplay = document.getElementById('reset-link-display')!;
+
   let editingStudentId: string | null = null;
   let currentInviteLink = '';
   let expandedUserId: string | null = null;
@@ -397,6 +417,9 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
         if (u.roles.includes('Student')) {
           actions.push(`<button data-edit-student="${u.id}" class="text-sm text-blue-600 hover:text-blue-800">${escapeHtml(__t('users.editStudent'))}</button>`);
         }
+        if (u.status !== 'pending') {
+          actions.push(`<button data-reset-password="${u.id}" class="text-sm text-amber-600 hover:text-amber-800">Reset Password</button>`);
+        }
         if (u.status === 'pending' && u.inviteId) {
           actions.push(`<button data-revoke-invite="${u.inviteId}" data-revoke-user="${u.id}" class="text-sm text-red-600 hover:text-red-800">${escapeHtml(__t('users.revokeInvite'))}</button>`);
         }
@@ -483,7 +506,7 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
     const target = e.target as HTMLElement;
 
     // Handle action buttons - don't toggle row
-    if (target.closest('[data-edit-roles]') || target.closest('[data-edit-student]') || target.closest('[data-copy-email]') || target.closest('[data-revoke-invite]')) {
+    if (target.closest('[data-edit-roles]') || target.closest('[data-edit-student]') || target.closest('[data-copy-email]') || target.closest('[data-revoke-invite]') || target.closest('[data-reset-password]')) {
       return;
     }
 
@@ -535,6 +558,50 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
     } catch {
       btn.textContent = __t('users.revokeInvite');
     }
+  });
+
+  // Reset Password - delegation
+  userTbody.addEventListener('click', async (e) => {
+    const btn = (e.target as HTMLElement).closest('[data-reset-password]') as HTMLElement | null;
+    if (!btn) return;
+    e.stopPropagation();
+    const userId = btn.dataset.resetPassword!;
+
+    btn.textContent = 'Generating...';
+    try {
+      const res = await fetch('/api/admin/password-reset', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        btn.textContent = 'Reset Password';
+        alert(body.error || 'Failed to generate reset link');
+        return;
+      }
+      const resetUrl = `${window.location.origin}/reset-password?token=${body.data.resetToken}`;
+      resetLinkDisplay.textContent = resetUrl;
+      resetPasswordModal.classList.remove('hidden');
+    } catch {
+      alert('Network error');
+    } finally {
+      btn.textContent = 'Reset Password';
+    }
+  });
+
+  // Copy reset link
+  document.getElementById('copy-reset-link')!.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(resetLinkDisplay.textContent!);
+    const btn = document.getElementById('copy-reset-link')!;
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy Link'; }, 1500);
+  });
+
+  // Done reset modal
+  document.getElementById('done-reset')!.addEventListener('click', () => {
+    resetPasswordModal.classList.add('hidden');
   });
 
   // Edit Roles - delegation on tbody (handles buttons in expanded rows)

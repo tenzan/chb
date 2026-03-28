@@ -5,7 +5,9 @@ import { bootstrapAdmin } from "./lib/bootstrap";
 const PUBLIC_PATHS = [
   "/login",
   "/accept-invite",
+  "/reset-password",
   "/api/auth/login",
+  "/api/auth/reset-password",
   "/api/admin/invites/accept",
   "/api/health",
 ];
