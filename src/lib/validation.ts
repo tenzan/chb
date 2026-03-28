@@ -62,6 +62,15 @@ export const manageRolesSchema = z.object({
   remove: z.array(z.enum(VALID_ROLES)).default([]),
 });
 
+export const generatePasswordResetSchema = z.object({
+  userId: z.string().min(1),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(6),
+});
+
 export const createUserSchema = z.object({
   email: z
     .string()
