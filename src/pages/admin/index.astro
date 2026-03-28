@@ -1,9 +1,12 @@
 ---
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import { getLocale, t } from '../../i18n';
+
+const locale = getLocale(Astro.cookies.get('lang')?.value);
 ---
 
-<DashboardLayout title="Dashboard">
+<DashboardLayout title={t(locale, 'nav.dashboard')}>
   <div class="bg-white rounded-lg border border-gray-200 p-6">
-    <p class="text-gray-600">Welcome to the admin dashboard.</p>
+    <p class="text-gray-600">{t(locale, 'dashboard.welcome')}</p>
   </div>
 </DashboardLayout>

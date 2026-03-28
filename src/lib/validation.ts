@@ -71,6 +71,16 @@ export const resetPasswordSchema = z.object({
   password: z.string().min(6),
 });
 
+export const createSubjectSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+});
+
+export const updateSubjectSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().optional(),
+});
+
 export const createUserSchema = z.object({
   email: z
     .string()

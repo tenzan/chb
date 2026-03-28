@@ -1,15 +1,18 @@
 ---
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import { getLocale, t } from '../../i18n';
+
+const locale = getLocale(Astro.cookies.get('lang')?.value);
 ---
 
-<DashboardLayout title="Deployments">
+<DashboardLayout title={t(locale, 'nav.deployments')}>
   <div class="flex items-center justify-between mb-6">
     <div></div>
     <button id="refresh-btn" class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700">
       <svg id="refresh-icon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M4.49 9A8 8 0 0119.5 7.5L20 9M19.51 15A8 8 0 014.5 16.5L4 15"/>
       </svg>
-      Refresh
+      {t(locale, 'common.refresh')}
     </button>
   </div>
 
@@ -18,37 +21,37 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     <!-- Staging Card -->
     <div class="bg-white rounded-xl border border-gray-200 p-6">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-gray-900">Staging</h2>
-        <span class="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded">Preview</span>
+        <h2 class="text-lg font-semibold text-gray-900">{t(locale, 'deployments.staging')}</h2>
+        <span class="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded">{t(locale, 'deployments.preview')}</span>
       </div>
-      <div id="staging-status" class="text-gray-500 text-sm">Loading...</div>
+      <div id="staging-status" class="text-gray-500 text-sm">{t(locale, 'common.loading')}</div>
     </div>
 
     <!-- Production Card -->
     <div class="bg-white rounded-xl border border-gray-200 p-6">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-gray-900">Production</h2>
-        <span class="px-2 py-1 bg-green-50 text-green-700 text-xs font-medium rounded">Live</span>
+        <h2 class="text-lg font-semibold text-gray-900">{t(locale, 'deployments.production')}</h2>
+        <span class="px-2 py-1 bg-green-50 text-green-700 text-xs font-medium rounded">{t(locale, 'deployments.live')}</span>
       </div>
-      <div id="production-status" class="text-gray-500 text-sm">Loading...</div>
+      <div id="production-status" class="text-gray-500 text-sm">{t(locale, 'common.loading')}</div>
     </div>
   </div>
 
   <!-- Production Deploy History -->
   <div class="bg-white rounded-xl border border-gray-200">
     <div class="px-6 py-4 border-b border-gray-200">
-      <h2 class="text-lg font-semibold text-gray-900">Production Deploy History</h2>
+      <h2 class="text-lg font-semibold text-gray-900">{t(locale, 'deployments.productionDeployHistory')}</h2>
     </div>
     <div id="runs-list">
-      <div class="px-6 py-8 text-center text-gray-400">Loading...</div>
+      <div class="px-6 py-8 text-center text-gray-400">{t(locale, 'common.loading')}</div>
     </div>
   </div>
 
   <!-- Run Detail Panel -->
   <div id="run-detail" class="hidden mt-6 bg-white rounded-xl border border-gray-200">
     <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-      <h2 class="text-lg font-semibold text-gray-900">Deployment Details</h2>
-      <button id="close-detail" class="text-sm text-gray-500 hover:text-gray-700">Close</button>
+      <h2 class="text-lg font-semibold text-gray-900">{t(locale, 'deployments.deploymentDetails')}</h2>
+      <button id="close-detail" class="text-sm text-gray-500 hover:text-gray-700">{t(locale, 'common.close')}</button>
     </div>
     <div id="run-detail-content" class="p-6"></div>
   </div>
@@ -66,14 +69,14 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
 
     function statusBadge(status: string, conclusion: string | null) {
       if (status === 'completed') {
-        if (conclusion === 'success') return '<span class="px-2 py-1 rounded text-xs font-medium bg-green-50 text-green-700">Success</span>';
-        if (conclusion === 'failure') return '<span class="px-2 py-1 rounded text-xs font-medium bg-red-50 text-red-700">Failed</span>';
-        if (conclusion === 'cancelled') return '<span class="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600">Cancelled</span>';
+        if (conclusion === 'success') return `<span class="px-2 py-1 rounded text-xs font-medium bg-green-50 text-green-700">${escapeHtml(__t('deployments.success'))}</span>`;
+        if (conclusion === 'failure') return `<span class="px-2 py-1 rounded text-xs font-medium bg-red-50 text-red-700">${escapeHtml(__t('deployments.failed'))}</span>`;
+        if (conclusion === 'cancelled') return `<span class="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600">${escapeHtml(__t('deployments.cancelled'))}</span>`;
         return `<span class="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600">${conclusion || 'completed'}</span>`;
       }
-      if (status === 'in_progress') return '<span class="px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 animate-pulse">Running</span>';
-      if (status === 'queued') return '<span class="px-2 py-1 rounded text-xs font-medium bg-yellow-50 text-yellow-700 animate-pulse">Queued</span>';
-      if (status === 'waiting') return '<span class="px-2 py-1 rounded text-xs font-medium bg-yellow-50 text-yellow-700">Waiting</span>';
+      if (status === 'in_progress') return `<span class="px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 animate-pulse">${escapeHtml(__t('deployments.running'))}</span>`;
+      if (status === 'queued') return `<span class="px-2 py-1 rounded text-xs font-medium bg-yellow-50 text-yellow-700 animate-pulse">${escapeHtml(__t('deployments.queued'))}</span>`;
+      if (status === 'waiting') return `<span class="px-2 py-1 rounded text-xs font-medium bg-yellow-50 text-yellow-700">${escapeHtml(__t('deployments.waiting'))}</span>`;
       return `<span class="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600">${status}</span>`;
     }
 
@@ -104,7 +107,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     function shaWithCopy(sha: string, full: string) {
       return `<span class="inline-flex items-center gap-1 group/sha">
         <span class="text-gray-700 font-mono text-sm bg-gray-100 px-1.5 py-0.5 rounded">${sha}</span>
-        <button data-copy-sha="${full}" class="opacity-0 group-hover/sha:opacity-100 transition-opacity text-gray-400 hover:text-gray-600" title="Copy SHA">
+        <button data-copy-sha="${full}" class="opacity-0 group-hover/sha:opacity-100 transition-opacity text-gray-400 hover:text-gray-600" title="${escapeHtml(__t('common.copySha'))}">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke-width="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke-width="2"/></svg>
         </button>
       </span>`;
@@ -132,7 +135,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
       const el = document.getElementById('staging-status')!;
 
       if (!staging) {
-        el.innerHTML = '<p class="text-gray-500">No staging deployments yet.</p><p class="text-gray-400 text-xs mt-2">Push to main to trigger a staging deploy.</p>';
+        el.innerHTML = `<p class="text-gray-500">${escapeHtml(__t('deployments.noStagingYet'))}</p><p class="text-gray-400 text-xs mt-2">${escapeHtml(__t('deployments.pushToMain'))}</p>`;
         return;
       }
 
@@ -142,15 +145,15 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
         <div class="space-y-3">
           <div class="flex items-center gap-2">
             ${statusBadge(staging.status, staging.conclusion)}
-            ${isPromoted ? '<span class="px-2 py-1 rounded text-xs font-medium bg-green-50 text-green-700">Promoted</span>' : ''}
+            ${isPromoted ? `<span class="px-2 py-1 rounded text-xs font-medium bg-green-50 text-green-700">${escapeHtml(__t('deployments.promoted'))}</span>` : ''}
           </div>
           <div class="flex items-center gap-2">
             ${shaWithCopy(staging.head_sha, staging.head_sha_full)}
             ${staging.display_title ? `<span class="text-gray-500 text-sm truncate">${escapeHtml(staging.display_title)}</span>` : ''}
           </div>
-          ${cfUrl ? `<div class="flex items-center gap-1.5"><span class="text-gray-400 text-xs">URL:</span><a href="${cfUrl}" target="_blank" class="text-sm text-blue-600 hover:text-blue-500 truncate">${stripProtocol(cfUrl)} ↗</a></div>` : ''}
+          ${cfUrl ? `<div class="flex items-center gap-1.5"><span class="text-gray-400 text-xs">${escapeHtml(__t('common.url'))}:</span><a href="${cfUrl}" target="_blank" class="text-sm text-blue-600 hover:text-blue-500 truncate">${stripProtocol(cfUrl)} ↗</a></div>` : ''}
           <div class="text-gray-400 text-xs">${formatTime(staging.created_at)}</div>
-          ${staging.html_url ? `<a href="${staging.html_url}" target="_blank" class="inline-block text-sm text-blue-600 hover:text-blue-500">View on GitHub</a>` : ''}
+          ${staging.html_url ? `<a href="${staging.html_url}" target="_blank" class="inline-block text-sm text-blue-600 hover:text-blue-500">${escapeHtml(__t('deployments.viewOnGithub'))}</a>` : ''}
         </div>
       `;
     }
@@ -168,18 +171,18 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
           <div class="space-y-3 mb-4">
             <div class="flex items-center gap-2">
               ${statusBadge(production.status, production.conclusion)}
-              ${isUpToDate ? '<span class="px-2 py-1 rounded text-xs font-medium bg-green-50 text-green-700">Up to date</span>' : production.conclusion === 'failure' ? '' : '<span class="px-2 py-1 rounded text-xs font-medium bg-yellow-50 text-yellow-700">Update available</span>'}
+              ${isUpToDate ? `<span class="px-2 py-1 rounded text-xs font-medium bg-green-50 text-green-700">${escapeHtml(__t('deployments.upToDate'))}</span>` : production.conclusion === 'failure' ? '' : `<span class="px-2 py-1 rounded text-xs font-medium bg-yellow-50 text-yellow-700">${escapeHtml(__t('deployments.updateAvailable'))}</span>`}
             </div>
             <div class="flex items-center gap-2">
               ${shaWithCopy(production.head_sha, production.head_sha_full)}
               ${production.display_title ? `<span class="text-gray-500 text-sm truncate">${escapeHtml(production.display_title)}</span>` : ''}
             </div>
-            ${cfUrl ? `<div class="flex items-center gap-1.5"><span class="text-gray-400 text-xs">URL:</span><a href="${cfUrl}" target="_blank" class="text-sm text-blue-600 hover:text-blue-500 truncate">${stripProtocol(cfUrl)} ↗</a></div>` : ''}
+            ${cfUrl ? `<div class="flex items-center gap-1.5"><span class="text-gray-400 text-xs">${escapeHtml(__t('common.url'))}:</span><a href="${cfUrl}" target="_blank" class="text-sm text-blue-600 hover:text-blue-500 truncate">${stripProtocol(cfUrl)} ↗</a></div>` : ''}
             <div class="text-gray-400 text-xs">${formatTime(production.created_at)}</div>
           </div>
         `;
       } else {
-        productionInfo = '<p class="text-gray-500 mb-4">No production deployments yet.</p>';
+        productionInfo = `<p class="text-gray-500 mb-4">${escapeHtml(__t('deployments.noProductionYet'))}</p>`;
       }
 
       el.innerHTML = `
@@ -190,13 +193,13 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
             ${canPromote ? '' : 'disabled'}
             class="flex-1 px-4 py-2 rounded-lg text-sm font-medium ${canPromote ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}"
           >
-            ${isUpToDate ? 'Production is up to date' : canPromote ? (production && production.conclusion === 'failure' ? 'Retry Production Deploy' : 'Promote Staging to Production') : 'No staging build to promote'}
+            ${isUpToDate ? escapeHtml(__t('deployments.productionUpToDate')) : canPromote ? (production && production.conclusion === 'failure' ? escapeHtml(__t('deployments.retryProduction')) : escapeHtml(__t('deployments.promoteStaging'))) : escapeHtml(__t('deployments.noStagingToPromote'))}
           </button>
           <button
             id="redeploy-btn"
             class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 hover:bg-gray-300 text-gray-700"
           >
-            Redeploy
+            ${escapeHtml(__t('deployments.redeploy'))}
           </button>
         </div>
       `;
@@ -209,11 +212,11 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     }
 
     async function triggerPromotion() {
-      if (!confirm('Promote staging to production?\n\nThis will run tests, build, deploy backend Worker + frontend Pages, and apply D1 migrations.')) return;
+      if (!confirm(__t('deployments.confirmPromote'))) return;
 
       const btn = document.getElementById('promote-btn') as HTMLButtonElement;
       btn.disabled = true;
-      btn.textContent = 'Triggering...';
+      btn.textContent = __t('deployments.triggering');
 
       try {
         const res = await fetch('/api/admin/deployments', { method: 'POST' });
@@ -224,19 +227,19 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
           return;
         }
 
-        btn.textContent = 'Triggered! Waiting...';
+        btn.textContent = __t('deployments.triggeredWaiting');
         setTimeout(() => { loadData(); }, 3000);
       } catch {
-        alert('Failed to trigger deployment');
+        alert(__t('deployments.failedTrigger'));
       }
     }
 
     async function triggerRedeploy() {
-      if (!confirm('Redeploy production?\n\nThis will re-run the production deploy workflow with the current main branch and latest env vars.')) return;
+      if (!confirm(__t('deployments.confirmRedeploy'))) return;
 
       const btn = document.getElementById('redeploy-btn') as HTMLButtonElement;
       btn.disabled = true;
-      btn.textContent = 'Triggering...';
+      btn.textContent = __t('deployments.triggering');
 
       try {
         const res = await fetch('/api/admin/deployments', { method: 'POST' });
@@ -245,16 +248,16 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
         if (json.error) {
           alert(json.error + (json.detail ? '\n\n' + json.detail : ''));
           btn.disabled = false;
-          btn.textContent = 'Redeploy';
+          btn.textContent = __t('deployments.redeploy');
           return;
         }
 
-        btn.textContent = 'Triggered!';
+        btn.textContent = __t('deployments.triggered');
         setTimeout(() => { loadData(); }, 3000);
       } catch {
-        alert('Failed to trigger redeployment');
+        alert(__t('deployments.failedRedeploy'));
         btn.disabled = false;
-        btn.textContent = 'Redeploy';
+        btn.textContent = __t('deployments.redeploy');
       }
     }
 
@@ -262,7 +265,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
       const el = document.getElementById('runs-list')!;
 
       if (!runs || runs.length === 0) {
-        el.innerHTML = '<div class="px-6 py-8 text-center text-gray-400">No production deployments yet.</div>';
+        el.innerHTML = `<div class="px-6 py-8 text-center text-gray-400">${escapeHtml(__t('deployments.noProductionYet'))}</div>`;
         return;
       }
 
@@ -279,7 +282,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
                 ${run.display_title ? `<span class="text-gray-500 text-sm truncate">${escapeHtml(run.display_title)}</span>` : ''}
               </div>
               <div class="flex items-center gap-4 text-sm text-gray-400 shrink-0">
-                <span>${run.triggering_actor || 'unknown'}</span>
+                <span>${run.triggering_actor || __t('deployments.unknown')}</span>
                 <span>${formatTime(run.created_at)}</span>
               </div>
             </div>
@@ -292,7 +295,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
       const panel = document.getElementById('run-detail')!;
       const content = document.getElementById('run-detail-content')!;
       panel.classList.remove('hidden');
-      content.innerHTML = '<div class="text-gray-400">Loading...</div>';
+      content.innerHTML = `<div class="text-gray-400">${escapeHtml(__t('common.loading'))}</div>`;
 
       const res = await fetch(`/api/admin/deployments/${runId}`);
       const json = await res.json();
@@ -311,24 +314,24 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
           ${statusBadge(run.status, run.conclusion)}
           <span class="text-gray-900 font-medium text-lg">#${run.run_number}</span>
           ${shaWithCopy(run.head_sha, run.head_sha_full)}
-          <a href="${run.html_url}" target="_blank" class="text-sm text-blue-600 hover:text-blue-500 ml-auto">View on GitHub</a>
+          <a href="${run.html_url}" target="_blank" class="text-sm text-blue-600 hover:text-blue-500 ml-auto">${escapeHtml(__t('deployments.viewOnGithub'))}</a>
         </div>
         <div class="grid grid-cols-3 gap-4 mb-6 text-sm">
           <div>
-            <div class="text-gray-400">Triggered by</div>
-            <div class="text-gray-900">${run.triggering_actor || 'unknown'}</div>
+            <div class="text-gray-400">${escapeHtml(__t('deployments.triggeredBy'))}</div>
+            <div class="text-gray-900">${run.triggering_actor || __t('deployments.unknown')}</div>
           </div>
           <div>
-            <div class="text-gray-400">Started</div>
+            <div class="text-gray-400">${escapeHtml(__t('deployments.started'))}</div>
             <div class="text-gray-900">${formatTime(run.created_at)}</div>
           </div>
           <div>
-            <div class="text-gray-400">Duration</div>
+            <div class="text-gray-400">${escapeHtml(__t('deployments.duration'))}</div>
             <div class="text-gray-900">${job ? formatDuration(job.started_at, job.completed_at) : '—'}</div>
           </div>
         </div>
         ${steps.length > 0 ? `
-          <div class="text-sm font-medium text-gray-500 mb-2">Steps</div>
+          <div class="text-sm font-medium text-gray-500 mb-2">${escapeHtml(__t('deployments.steps'))}</div>
           <div class="bg-gray-50 rounded-lg border border-gray-200 divide-y divide-gray-200">
             ${steps.map((step: any) => `
               <div class="px-4 py-2 flex items-center justify-between">
@@ -340,7 +343,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
               </div>
             `).join('')}
           </div>
-        ` : '<div class="text-gray-400 text-sm">No step details available yet.</div>'}
+        ` : `<div class="text-gray-400 text-sm">${escapeHtml(__t('deployments.noSteps'))}</div>`}
       `;
     }
 
