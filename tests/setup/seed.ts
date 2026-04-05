@@ -53,3 +53,43 @@ export async function createTestUser(
 
   return { id, email, name };
 }
+
+export async function createTestSubject(
+  options: {
+    id?: string;
+    name?: string;
+    description?: string;
+  } = {}
+) {
+  const db = getTestDB();
+  const {
+    id = crypto.randomUUID(),
+    name = 'Test Subject',
+    description,
+  } = options;
+
+  await db
+    .prepare('INSERT INTO subjects (id, name, description) VALUES (?, ?, ?)')
+    .bind(id, name, description || null)
+    .run();
+
+  return { id, name };
+}
+
+export async function createTestEnrollment(
+  options: {
+    id?: string;
+    studentId: string;
+    subjectId: string;
+  }
+) {
+  const db = getTestDB();
+  const { id = crypto.randomUUID(), studentId, subjectId } = options;
+
+  await db
+    .prepare('INSERT INTO enrollments (id, student_id, subject_id) VALUES (?, ?, ?)')
+    .bind(id, studentId, subjectId)
+    .run();
+
+  return { id, studentId, subjectId };
+}
