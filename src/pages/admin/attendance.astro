@@ -9,11 +9,23 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
   <div>
     <!-- Top controls -->
     <div class="flex items-center justify-between mb-4 flex-wrap gap-4">
-      <!-- Student select -->
-      <div>
-        <select id="student-select" class="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white">
-          <option value="">{t(locale, 'attendance.selectStudent')}</option>
-        </select>
+      <!-- Searchable student combobox -->
+      <div class="relative w-72">
+        <div class="flex items-center border border-gray-300 rounded-md bg-white">
+          <input
+            id="student-search"
+            type="text"
+            autocomplete="off"
+            placeholder={t(locale, 'attendance.allStudents')}
+            class="flex-1 px-3 py-2 text-sm rounded-md outline-none bg-transparent"
+          />
+          <button id="clear-student" class="hidden px-2 py-2 text-gray-400 hover:text-gray-600" type="button">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div id="student-dropdown" class="hidden absolute z-40 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+          <!-- Filled by JS -->
+        </div>
       </div>
 
       <!-- Month navigation -->
@@ -36,7 +48,7 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
     </div>
 
     <!-- Calendar container -->
-    <div id="calendar-container" class="hidden bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div id="calendar-container" class="bg-white rounded-lg border border-gray-200 overflow-hidden">
       <!-- Day headers -->
       <div class="grid grid-cols-7 bg-gray-50">
         <div class="px-2 py-2 text-xs font-medium text-gray-500 uppercase text-center">{t(locale, 'attendance.dayNamesShort.0')}</div>
@@ -50,14 +62,9 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
       <!-- Calendar grid -->
       <div id="calendar-grid" class="grid grid-cols-7"></div>
     </div>
-
-    <!-- No student placeholder -->
-    <div id="no-student-msg" class="flex items-center justify-center py-20 text-sm text-gray-500">
-      {t(locale, 'attendance.selectStudent')}
-    </div>
   </div>
 
-  <!-- Attendance modal -->
+  <!-- Attendance recording modal (individual student view) -->
   <div id="attendance-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
     <div class="bg-white rounded-lg p-6 w-full max-w-md">
       <h3 id="attendance-modal-title" class="text-lg font-semibold mb-4">{t(locale, 'attendance.recordAttendance')}</h3>
@@ -69,30 +76,55 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
       </div>
     </div>
   </div>
+
+  <!-- Drill-down modal (aggregate view — click a count) -->
+  <div id="drilldown-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md">
+      <h3 id="drilldown-title" class="text-lg font-semibold mb-4"></h3>
+      <div id="drilldown-list" class="max-h-[60vh] overflow-y-auto"></div>
+      <div class="flex gap-2 mt-4">
+        <button type="button" id="close-drilldown" class="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50">{t(locale, 'common.close')}</button>
+      </div>
+    </div>
+  </div>
 </DashboardLayout>
 
 <script>
-  const studentSelect = document.getElementById('student-select') as HTMLSelectElement;
+  const studentSearch = document.getElementById('student-search') as HTMLInputElement;
+  const studentDropdown = document.getElementById('student-dropdown')!;
+  const clearStudentBtn = document.getElementById('clear-student')!;
   const monthLabel = document.getElementById('month-label')!;
   const calendarContainer = document.getElementById('calendar-container')!;
   const calendarGrid = document.getElementById('calendar-grid')!;
-  const noStudentMsg = document.getElementById('no-student-msg')!;
+
   const attendanceModal = document.getElementById('attendance-modal')!;
   const attendanceModalTitle = document.getElementById('attendance-modal-title')!;
   const attendanceError = document.getElementById('attendance-error')!;
   const attendanceSubjects = document.getElementById('attendance-subjects')!;
   const saveBtn = document.getElementById('save-attendance') as HTMLButtonElement;
 
+  const drilldownModal = document.getElementById('drilldown-modal')!;
+  const drilldownTitle = document.getElementById('drilldown-title')!;
+  const drilldownList = document.getElementById('drilldown-list')!;
+
   let currentYear = new Date().getFullYear();
   let currentMonth = new Date().getMonth();
   let attendance: any[] = [];
   let enrollments: any[] = [];
+  let allStudents: any[] = [];
+  let selectedStudentId: string | null = null; // null = "All Students"
   let selectedDate: string | null = null;
 
-  const STATUS_SYMBOLS: Record<string, { symbol: string; class: string }> = {
-    present: { symbol: '●', class: 'text-green-600' },
-    notified_absent: { symbol: '▲', class: 'text-orange-500' },
-    absent: { symbol: '✕', class: 'text-red-500' },
+  const STATUS_SYMBOLS: Record<string, { symbol: string; colorClass: string; bgClass: string }> = {
+    present: { symbol: '\u25CF', colorClass: 'text-green-600', bgClass: 'bg-green-50 hover:bg-green-100 border-green-200' },
+    notified_absent: { symbol: '\u25B2', colorClass: 'text-orange-500', bgClass: 'bg-orange-50 hover:bg-orange-100 border-orange-200' },
+    absent: { symbol: '\u2715', colorClass: 'text-red-500', bgClass: 'bg-red-50 hover:bg-red-100 border-red-200' },
+  };
+
+  const STATUS_LABELS: Record<string, string> = {
+    present: 'attendance.present',
+    notified_absent: 'attendance.notifiedAbsent',
+    absent: 'attendance.absent',
   };
 
   // All dynamic content inserted via innerHTML is escaped through this function
@@ -111,33 +143,110 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
     return `${y}-${pad(m + 1)}-${pad(d)}`;
   }
 
-  function updateMonthLabel() {
+  function getMonthNames(): string[] {
     let monthNames = __t('attendance.monthNames');
     if (typeof monthNames === 'string') {
       try { monthNames = JSON.parse(monthNames); } catch { monthNames = []; }
     }
-    // If __t returned the key itself (string), or if it's still not an array, get from __i18n directly
     if (!Array.isArray(monthNames)) {
       monthNames = (window as any).__i18n?.attendance?.monthNames || [];
     }
-    const name = Array.isArray(monthNames) ? (monthNames[currentMonth] || '') : '';
+    return monthNames;
+  }
+
+  function updateMonthLabel() {
+    const names = getMonthNames();
+    const name = names[currentMonth] || '';
     monthLabel.textContent = `${name} ${currentYear}`;
   }
 
-  function loadStudents() {
-    fetch('/api/admin/students', { credentials: 'include' })
-      .then(res => res.ok ? res.json() : { data: [] })
-      .then(body => {
-        const students = body.data || [];
-        const defaultText = studentSelect.options[0]?.text || '';
-        studentSelect.length = 1;
-        students.forEach((s: any) => {
-          const opt = document.createElement('option');
-          opt.value = s.id;
-          opt.textContent = s.name;
-          studentSelect.appendChild(opt);
-        });
-      });
+  // ── Searchable Combobox ──────────────────────────────
+
+  async function loadStudents() {
+    const res = await fetch('/api/admin/students', { credentials: 'include' });
+    if (!res.ok) return;
+    const body = await res.json();
+    allStudents = body.data || [];
+  }
+
+  function showDropdown(filter: string) {
+    const query = filter.toLowerCase();
+    const filtered = query
+      ? allStudents.filter((s: any) => s.name.toLowerCase().includes(query))
+      : allStudents;
+
+    let html = '<div class="py-1">';
+    // "All students" option
+    html += '<div class="student-option px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 text-blue-700 font-medium" data-id="">'
+      + escapeHtml(__t('attendance.allStudents'))
+      + '</div>';
+
+    if (filtered.length === 0 && query) {
+      html += '<div class="px-3 py-2 text-sm text-gray-400">' + escapeHtml(__t('attendance.noMatchingStudents')) + '</div>';
+    } else {
+      for (const s of filtered) {
+        html += '<div class="student-option px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 text-gray-900" data-id="' + escapeHtml(s.id) + '">'
+          + escapeHtml(s.name)
+          + '</div>';
+      }
+    }
+    html += '</div>';
+
+    studentDropdown.innerHTML = html;
+    studentDropdown.classList.remove('hidden');
+  }
+
+  function hideDropdown() {
+    setTimeout(() => studentDropdown.classList.add('hidden'), 150);
+  }
+
+  function selectStudent(id: string | null, name: string) {
+    selectedStudentId = id;
+    if (id) {
+      studentSearch.value = name;
+      clearStudentBtn.classList.remove('hidden');
+    } else {
+      studentSearch.value = '';
+      studentSearch.placeholder = __t('attendance.allStudents');
+      clearStudentBtn.classList.add('hidden');
+    }
+    studentDropdown.classList.add('hidden');
+    onStudentChange();
+  }
+
+  studentSearch.addEventListener('focus', () => {
+    showDropdown(studentSearch.value);
+  });
+
+  studentSearch.addEventListener('input', () => {
+    showDropdown(studentSearch.value);
+  });
+
+  studentSearch.addEventListener('blur', hideDropdown);
+
+  studentDropdown.addEventListener('mousedown', (e) => {
+    const option = (e.target as HTMLElement).closest('.student-option') as HTMLElement | null;
+    if (!option) return;
+    e.preventDefault();
+    const id = option.dataset.id || null;
+    const name = option.textContent || '';
+    selectStudent(id === '' ? null : id, name);
+  });
+
+  clearStudentBtn.addEventListener('click', () => {
+    selectStudent(null, '');
+  });
+
+  // ── Data Loading ─────────────────────────────────────
+
+  async function onStudentChange() {
+    if (selectedStudentId) {
+      await loadEnrollments(selectedStudentId);
+    } else {
+      enrollments = [];
+    }
+    await loadAttendance();
+    renderCalendar();
   }
 
   function loadEnrollments(studentId: string) {
@@ -149,10 +258,12 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
   }
 
   function loadAttendance() {
-    const studentId = studentSelect.value;
-    if (!studentId) return Promise.resolve();
     const month = `${currentYear}-${pad(currentMonth + 1)}`;
-    return fetch(`/api/admin/attendance?student_id=${studentId}&month=${month}`, { credentials: 'include' })
+    let url = `/api/admin/attendance?month=${month}`;
+    if (selectedStudentId) {
+      url += `&student_id=${selectedStudentId}`;
+    }
+    return fetch(url, { credentials: 'include' })
       .then(res => res.ok ? res.json() : { data: [] })
       .then(body => {
         attendance = body.data || [];
@@ -162,40 +273,28 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
       });
   }
 
+  // ── Calendar Rendering ───────────────────────────────
+
   function renderCalendar() {
-    const studentId = studentSelect.value;
-    if (!studentId) {
-      calendarContainer.classList.add('hidden');
-      noStudentMsg.classList.remove('hidden');
-      return;
-    }
-
-    calendarContainer.classList.remove('hidden');
-    noStudentMsg.classList.add('hidden');
-
     const firstDay = new Date(currentYear, currentMonth, 1);
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
 
-    // Monday-based offset (0=Mon, 6=Sun)
     let startDow = firstDay.getDay() - 1;
     if (startDow < 0) startDow = 6;
 
     const now = new Date();
     const todayStr = formatDate(now.getFullYear(), now.getMonth(), now.getDate());
+    const isAggregateView = !selectedStudentId;
 
     let html = '';
 
-    // Empty cells before first day
     for (let i = 0; i < startDow; i++) {
       html += '<div class="min-h-[80px] border-b border-r border-gray-100 bg-gray-50/50"></div>';
     }
 
-    // Day cells
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = formatDate(currentYear, currentMonth, d);
       const isToday = dateStr === todayStr;
-
-      // Attendance records for this date
       const dayRecords = attendance.filter((a: any) => a.date === dateStr);
 
       let dayNumHtml: string;
@@ -205,29 +304,19 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
         dayNumHtml = '<span class="text-xs font-medium text-gray-700">' + d + '</span>';
       }
 
-      let recordsHtml = '';
-      for (const rec of dayRecords) {
-        const statusInfo = STATUS_SYMBOLS[rec.status];
-        if (!statusInfo) continue;
-        const subjectName = rec.subject_name || '';
-        const abbr = subjectName.substring(0, 3);
-        const statusLabel = rec.status === 'present' ? __t('attendance.present')
-          : rec.status === 'notified_absent' ? __t('attendance.notifiedAbsent')
-          : __t('attendance.absent');
-        const title = escapeHtml(subjectName) + ' — ' + escapeHtml(statusLabel);
-        recordsHtml += '<div class="flex items-center" title="' + title + '">'
-          + '<span class="' + statusInfo.class + ' text-xs">' + statusInfo.symbol + '</span>'
-          + '<span class="text-[10px] text-gray-400 ml-0.5">' + escapeHtml(abbr) + '</span>'
-          + '</div>';
+      let contentHtml = '';
+      if (isAggregateView) {
+        contentHtml = renderAggregateCell(dateStr, dayRecords);
+      } else {
+        contentHtml = renderIndividualCell(dayRecords);
       }
 
       html += '<div data-date="' + dateStr + '" class="min-h-[80px] border-b border-r border-gray-100 p-1.5 cursor-pointer hover:bg-blue-50/50 transition-colors">'
         + '<div class="mb-1">' + dayNumHtml + '</div>'
-        + '<div class="space-y-0.5">' + recordsHtml + '</div>'
+        + contentHtml
         + '</div>';
     }
 
-    // Empty cells after last day
     const totalCells = startDow + daysInMonth;
     const remainder = totalCells % 7;
     if (remainder > 0) {
@@ -240,18 +329,113 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
     updateMonthLabel();
   }
 
-  // Day click handler (delegation)
+  function renderAggregateCell(dateStr: string, dayRecords: any[]): string {
+    if (dayRecords.length === 0) return '';
+
+    const counts: Record<string, number> = { present: 0, notified_absent: 0, absent: 0 };
+    for (const rec of dayRecords) {
+      if (counts[rec.status] !== undefined) counts[rec.status]++;
+    }
+
+    let html = '<div class="space-y-0.5">';
+    for (const [status, count] of Object.entries(counts)) {
+      if (count === 0) continue;
+      const info = STATUS_SYMBOLS[status];
+      html += '<button type="button" data-drilldown-date="' + dateStr + '" data-drilldown-status="' + status + '" '
+        + 'class="flex items-center gap-1 px-1.5 py-0.5 rounded border text-xs font-medium cursor-pointer transition-colors ' + info.bgClass + '">'
+        + '<span class="' + info.colorClass + '">' + info.symbol + '</span>'
+        + '<span class="' + info.colorClass + '">' + count + '</span>'
+        + '</button>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function renderIndividualCell(dayRecords: any[]): string {
+    if (dayRecords.length === 0) return '';
+
+    let html = '<div class="space-y-0.5">';
+    for (const rec of dayRecords) {
+      const statusInfo = STATUS_SYMBOLS[rec.status];
+      if (!statusInfo) continue;
+      const subjectName = rec.subject_name || '';
+      const abbr = subjectName.substring(0, 3);
+      const statusLabel = __t(STATUS_LABELS[rec.status] || '');
+      const title = escapeHtml(subjectName) + ' \u2014 ' + escapeHtml(statusLabel);
+      html += '<div class="flex items-center" title="' + title + '">'
+        + '<span class="' + statusInfo.colorClass + ' text-xs">' + statusInfo.symbol + '</span>'
+        + '<span class="text-[10px] text-gray-400 ml-0.5">' + escapeHtml(abbr) + '</span>'
+        + '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  // ── Day Click Handler ────────────────────────────────
+
   calendarGrid.addEventListener('click', (e) => {
+    // Check for drill-down button click (aggregate view)
+    const drillBtn = (e.target as HTMLElement).closest('[data-drilldown-date]') as HTMLElement | null;
+    if (drillBtn) {
+      e.stopPropagation();
+      const date = drillBtn.dataset.drilldownDate!;
+      const status = drillBtn.dataset.drilldownStatus!;
+      openDrilldownModal(date, status);
+      return;
+    }
+
+    // Regular day cell click
     const cell = (e.target as HTMLElement).closest('[data-date]') as HTMLElement | null;
     if (!cell) return;
     selectedDate = cell.dataset.date!;
-    openAttendanceModal(selectedDate);
+
+    if (selectedStudentId) {
+      openAttendanceModal(selectedDate);
+    }
+    // In aggregate view, clicking the cell (not a count button) does nothing
   });
+
+  // ── Drill-down Modal (Aggregate View) ────���───────────
+
+  function openDrilldownModal(date: string, status: string) {
+    const dayRecords = attendance.filter((a: any) => a.date === date && a.status === status);
+    const statusLabel = __t(STATUS_LABELS[status] || '');
+    const info = STATUS_SYMBOLS[status];
+
+    drilldownTitle.textContent = date + ' \u2014 ' + info.symbol + ' ' + statusLabel;
+
+    if (dayRecords.length === 0) {
+      drilldownList.innerHTML = '<p class="text-sm text-gray-400">' + escapeHtml(__t('attendance.noRecords')) + '</p>';
+    } else {
+      let html = '<table class="w-full"><thead class="bg-gray-50"><tr>'
+        + '<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">' + escapeHtml(__t('attendance.student')) + '</th>'
+        + '<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">' + escapeHtml(__t('attendance.subject')) + '</th>'
+        + '</tr></thead><tbody class="divide-y divide-gray-100">';
+
+      for (const rec of dayRecords) {
+        html += '<tr class="hover:bg-gray-50">'
+          + '<td class="px-3 py-2 text-sm text-gray-900">' + escapeHtml(rec.student_name || '') + '</td>'
+          + '<td class="px-3 py-2 text-sm text-gray-500">' + escapeHtml(rec.subject_name || '') + '</td>'
+          + '</tr>';
+      }
+
+      html += '</tbody></table>';
+      drilldownList.innerHTML = html;
+    }
+
+    drilldownModal.classList.remove('hidden');
+  }
+
+  document.getElementById('close-drilldown')!.addEventListener('click', () => {
+    drilldownModal.classList.add('hidden');
+  });
+
+  // ── Attendance Recording Modal (Individual View) ─────
 
   function openAttendanceModal(date: string) {
     if (enrollments.length === 0) return;
 
-    attendanceModalTitle.textContent = __t('attendance.recordAttendance') + ' — ' + date;
+    attendanceModalTitle.textContent = __t('attendance.recordAttendance') + ' \u2014 ' + date;
     attendanceError.classList.add('hidden');
 
     let html = '';
@@ -289,7 +473,7 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
     return '<button type="button" class="status-btn flex-1 px-2 py-1 text-xs border rounded-md transition-colors ' + classes + '" data-status="' + status + '">' + escapeHtml(label) + '</button>';
   }
 
-  // Status toggle handler (delegation)
+  // Status toggle handler
   attendanceSubjects.addEventListener('click', (e) => {
     const btn = (e.target as HTMLElement).closest('.status-btn') as HTMLElement | null;
     if (!btn) return;
@@ -298,12 +482,10 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
 
     const status = btn.dataset.status!;
 
-    // Remove active classes from all buttons in this row
     row.querySelectorAll('.status-btn').forEach(b => {
       b.className = 'status-btn flex-1 px-2 py-1 text-xs border rounded-md transition-colors border-gray-300 text-gray-600 hover:bg-gray-50';
     });
 
-    // Add active classes to clicked button
     let activeClasses: string;
     if (status === 'present') activeClasses = 'bg-green-100 border-green-400 text-green-800';
     else if (status === 'notified_absent') activeClasses = 'bg-orange-100 border-orange-400 text-orange-800';
@@ -312,7 +494,6 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
     btn.className = 'status-btn flex-1 px-2 py-1 text-xs border rounded-md transition-colors ' + activeClasses;
   });
 
-  // Cancel modal
   document.getElementById('cancel-attendance')!.addEventListener('click', () => {
     attendanceModal.classList.add('hidden');
   });
@@ -366,7 +547,8 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
     }
   });
 
-  // Month navigation
+  // ── Month Navigation ────────────────────────────��────
+
   document.getElementById('prev-month')!.addEventListener('click', () => {
     currentMonth--;
     if (currentMonth < 0) { currentMonth = 11; currentYear--; }
@@ -386,29 +568,17 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
     loadAndRender();
   });
 
-  // Student change handler
-  studentSelect.addEventListener('change', async () => {
-    const studentId = studentSelect.value;
-    if (studentId) {
-      await loadEnrollments(studentId);
-      await loadAttendance();
-    } else {
-      enrollments = [];
-      attendance = [];
-    }
-    renderCalendar();
-  });
-
   function loadAndRender() {
-    const studentId = studentSelect.value;
-    if (studentId) {
-      loadAttendance().then(() => renderCalendar());
-    } else {
-      renderCalendar();
-    }
+    loadAttendance().then(() => renderCalendar());
   }
 
-  // Init
-  loadStudents();
-  renderCalendar();
+  // ── Init ─────────────────────────────────────────────
+
+  async function init() {
+    await loadStudents();
+    await loadAttendance();
+    renderCalendar();
+  }
+
+  init();
 </script>
