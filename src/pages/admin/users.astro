@@ -844,6 +844,7 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
 
   parentSearchInput.addEventListener('input', () => {
     parentIdInput.value = '';
+    clearParentBtn.classList.toggle('hidden', !parentSearchInput.value);
     showParentDropdown(parentSearchInput.value);
   });
 
