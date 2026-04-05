@@ -228,6 +228,7 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
   }
 
   studentSearch.addEventListener('input', () => {
+    clearStudentBtn.classList.toggle('hidden', !studentSearch.value);
     showDropdown(studentSearch.value);
   });
 

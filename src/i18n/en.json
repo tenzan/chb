@@ -91,6 +91,10 @@
     "done": "Done",
     "createInvite": "Create Invite",
     "parentLabel": "Parent",
+    "parentRequired": "Parent (required)",
+    "searchParents": "Search parent by name...",
+    "noMatchingParents": "No matching parents",
+    "selectParentFirst": "Please select a parent",
     "parents": "Parents"
   },
   "enrollments": {
