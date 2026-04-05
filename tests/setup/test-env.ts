@@ -13,6 +13,8 @@ let mf: Miniflare;
 let db: D1Database;
 
 const TABLES = [
+  'attendance',
+  'enrollments',
   'password_reset_tokens',
   'subjects',
   'sessions',
