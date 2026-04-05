@@ -47,6 +47,22 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
       </div>
     </div>
 
+    <!-- Legend -->
+    <div class="flex items-center gap-4 mb-4 text-xs text-gray-600">
+      <div class="flex items-center gap-1.5">
+        <span class="text-green-600 text-sm">{"\u25CF"}</span>
+        <span>{t(locale, 'attendance.present')}</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="text-orange-500 text-sm">{"\u25B2"}</span>
+        <span>{t(locale, 'attendance.notifiedAbsent')}</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="text-red-500 text-sm">{"\u2715"}</span>
+        <span>{t(locale, 'attendance.absent')}</span>
+      </div>
+    </div>
+
     <!-- Calendar container -->
     <div id="calendar-container" class="bg-white rounded-lg border border-gray-200 overflow-hidden">
       <!-- Day headers -->
@@ -170,18 +186,16 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
   }
 
   function showDropdown(filter: string) {
-    const query = filter.toLowerCase();
-    const filtered = query
-      ? allStudents.filter((s: any) => s.name.toLowerCase().includes(query))
-      : allStudents;
+    const query = filter.trim().toLowerCase();
+    if (!query) {
+      studentDropdown.classList.add('hidden');
+      return;
+    }
+
+    const filtered = allStudents.filter((s: any) => s.name.toLowerCase().includes(query));
 
     let html = '<div class="py-1">';
-    // "All students" option
-    html += '<div class="student-option px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 text-blue-700 font-medium" data-id="">'
-      + escapeHtml(__t('attendance.allStudents'))
-      + '</div>';
-
-    if (filtered.length === 0 && query) {
+    if (filtered.length === 0) {
       html += '<div class="px-3 py-2 text-sm text-gray-400">' + escapeHtml(__t('attendance.noMatchingStudents')) + '</div>';
     } else {
       for (const s of filtered) {
@@ -207,16 +221,11 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
       clearStudentBtn.classList.remove('hidden');
     } else {
       studentSearch.value = '';
-      studentSearch.placeholder = __t('attendance.allStudents');
       clearStudentBtn.classList.add('hidden');
     }
     studentDropdown.classList.add('hidden');
     onStudentChange();
   }
-
-  studentSearch.addEventListener('focus', () => {
-    showDropdown(studentSearch.value);
-  });
 
   studentSearch.addEventListener('input', () => {
     showDropdown(studentSearch.value);
@@ -228,9 +237,9 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
     const option = (e.target as HTMLElement).closest('.student-option') as HTMLElement | null;
     if (!option) return;
     e.preventDefault();
-    const id = option.dataset.id || null;
+    const id = option.dataset.id!;
     const name = option.textContent || '';
-    selectStudent(id === '' ? null : id, name);
+    selectStudent(id, name);
   });
 
   clearStudentBtn.addEventListener('click', () => {
