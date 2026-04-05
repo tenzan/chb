@@ -91,6 +91,10 @@
     "done": "Готово",
     "createInvite": "Создать приглашение",
     "parentLabel": "Родитель",
+    "parentRequired": "Родитель (обязательно)",
+    "searchParents": "Поиск родителя по имени...",
+    "noMatchingParents": "Родители не найдены",
+    "selectParentFirst": "Пожалуйста, выберите родителя",
     "parents": "Родители"
   },
   "enrollments": {
