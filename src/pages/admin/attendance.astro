@@ -1,0 +1,414 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import { getLocale, t } from '../../i18n';
+
+const locale = getLocale(Astro.cookies.get('lang')?.value);
+---
+
+<DashboardLayout title={t(locale, 'nav.attendance')}>
+  <div>
+    <!-- Top controls -->
+    <div class="flex items-center justify-between mb-4 flex-wrap gap-4">
+      <!-- Student select -->
+      <div>
+        <select id="student-select" class="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white">
+          <option value="">{t(locale, 'attendance.selectStudent')}</option>
+        </select>
+      </div>
+
+      <!-- Month navigation -->
+      <div class="flex items-center gap-2">
+        <button id="prev-month" class="p-1.5 rounded-md hover:bg-gray-100 transition-colors">
+          <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+          </svg>
+        </button>
+        <span id="month-label" class="text-sm font-medium text-gray-900 min-w-[180px] text-center"></span>
+        <button id="next-month" class="p-1.5 rounded-md hover:bg-gray-100 transition-colors">
+          <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </button>
+        <button id="today-btn" class="ml-2 px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+          {t(locale, 'attendance.today')}
+        </button>
+      </div>
+    </div>
+
+    <!-- Calendar container -->
+    <div id="calendar-container" class="hidden bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <!-- Day headers -->
+      <div class="grid grid-cols-7 bg-gray-50">
+        <div class="px-2 py-2 text-xs font-medium text-gray-500 uppercase text-center">{t(locale, 'attendance.dayNamesShort.0')}</div>
+        <div class="px-2 py-2 text-xs font-medium text-gray-500 uppercase text-center">{t(locale, 'attendance.dayNamesShort.1')}</div>
+        <div class="px-2 py-2 text-xs font-medium text-gray-500 uppercase text-center">{t(locale, 'attendance.dayNamesShort.2')}</div>
+        <div class="px-2 py-2 text-xs font-medium text-gray-500 uppercase text-center">{t(locale, 'attendance.dayNamesShort.3')}</div>
+        <div class="px-2 py-2 text-xs font-medium text-gray-500 uppercase text-center">{t(locale, 'attendance.dayNamesShort.4')}</div>
+        <div class="px-2 py-2 text-xs font-medium text-gray-500 uppercase text-center">{t(locale, 'attendance.dayNamesShort.5')}</div>
+        <div class="px-2 py-2 text-xs font-medium text-gray-500 uppercase text-center">{t(locale, 'attendance.dayNamesShort.6')}</div>
+      </div>
+      <!-- Calendar grid -->
+      <div id="calendar-grid" class="grid grid-cols-7"></div>
+    </div>
+
+    <!-- No student placeholder -->
+    <div id="no-student-msg" class="flex items-center justify-center py-20 text-sm text-gray-500">
+      {t(locale, 'attendance.selectStudent')}
+    </div>
+  </div>
+
+  <!-- Attendance modal -->
+  <div id="attendance-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md">
+      <h3 id="attendance-modal-title" class="text-lg font-semibold mb-4">{t(locale, 'attendance.recordAttendance')}</h3>
+      <div id="attendance-error" class="hidden bg-red-50 text-red-700 px-4 py-3 rounded-md text-sm mb-4"></div>
+      <div id="attendance-subjects" class="space-y-4 max-h-[60vh] overflow-y-auto"></div>
+      <div class="flex gap-2 mt-4">
+        <button type="button" id="cancel-attendance" class="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50">{t(locale, 'common.cancel')}</button>
+        <button type="button" id="save-attendance" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md text-sm hover:bg-blue-700 disabled:opacity-50">{t(locale, 'common.save')}</button>
+      </div>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script>
+  const studentSelect = document.getElementById('student-select') as HTMLSelectElement;
+  const monthLabel = document.getElementById('month-label')!;
+  const calendarContainer = document.getElementById('calendar-container')!;
+  const calendarGrid = document.getElementById('calendar-grid')!;
+  const noStudentMsg = document.getElementById('no-student-msg')!;
+  const attendanceModal = document.getElementById('attendance-modal')!;
+  const attendanceModalTitle = document.getElementById('attendance-modal-title')!;
+  const attendanceError = document.getElementById('attendance-error')!;
+  const attendanceSubjects = document.getElementById('attendance-subjects')!;
+  const saveBtn = document.getElementById('save-attendance') as HTMLButtonElement;
+
+  let currentYear = new Date().getFullYear();
+  let currentMonth = new Date().getMonth();
+  let attendance: any[] = [];
+  let enrollments: any[] = [];
+  let selectedDate: string | null = null;
+
+  const STATUS_SYMBOLS: Record<string, { symbol: string; class: string }> = {
+    present: { symbol: '●', class: 'text-green-600' },
+    notified_absent: { symbol: '▲', class: 'text-orange-500' },
+    absent: { symbol: '✕', class: 'text-red-500' },
+  };
+
+  // All dynamic content inserted via innerHTML is escaped through this function
+  // to prevent XSS — the same pattern used across all admin pages in this codebase.
+  function escapeHtml(str: string): string {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function pad(n: number): string {
+    return n < 10 ? '0' + n : String(n);
+  }
+
+  function formatDate(y: number, m: number, d: number): string {
+    return `${y}-${pad(m + 1)}-${pad(d)}`;
+  }
+
+  function updateMonthLabel() {
+    let monthNames = __t('attendance.monthNames');
+    if (typeof monthNames === 'string') {
+      try { monthNames = JSON.parse(monthNames); } catch { monthNames = []; }
+    }
+    // If __t returned the key itself (string), or if it's still not an array, get from __i18n directly
+    if (!Array.isArray(monthNames)) {
+      monthNames = (window as any).__i18n?.attendance?.monthNames || [];
+    }
+    const name = Array.isArray(monthNames) ? (monthNames[currentMonth] || '') : '';
+    monthLabel.textContent = `${name} ${currentYear}`;
+  }
+
+  function loadStudents() {
+    fetch('/api/admin/students', { credentials: 'include' })
+      .then(res => res.ok ? res.json() : { data: [] })
+      .then(body => {
+        const students = body.data || [];
+        const defaultText = studentSelect.options[0]?.text || '';
+        studentSelect.length = 1;
+        students.forEach((s: any) => {
+          const opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = s.name;
+          studentSelect.appendChild(opt);
+        });
+      });
+  }
+
+  function loadEnrollments(studentId: string) {
+    return fetch(`/api/admin/enrollments?student_id=${studentId}`, { credentials: 'include' })
+      .then(res => res.ok ? res.json() : { data: [] })
+      .then(body => {
+        enrollments = (body.data || []).filter((e: any) => !e.ended_at);
+      });
+  }
+
+  function loadAttendance() {
+    const studentId = studentSelect.value;
+    if (!studentId) return Promise.resolve();
+    const month = `${currentYear}-${pad(currentMonth + 1)}`;
+    return fetch(`/api/admin/attendance?student_id=${studentId}&month=${month}`, { credentials: 'include' })
+      .then(res => res.ok ? res.json() : { data: [] })
+      .then(body => {
+        attendance = body.data || [];
+      })
+      .catch(() => {
+        attendance = [];
+      });
+  }
+
+  function renderCalendar() {
+    const studentId = studentSelect.value;
+    if (!studentId) {
+      calendarContainer.classList.add('hidden');
+      noStudentMsg.classList.remove('hidden');
+      return;
+    }
+
+    calendarContainer.classList.remove('hidden');
+    noStudentMsg.classList.add('hidden');
+
+    const firstDay = new Date(currentYear, currentMonth, 1);
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+    // Monday-based offset (0=Mon, 6=Sun)
+    let startDow = firstDay.getDay() - 1;
+    if (startDow < 0) startDow = 6;
+
+    const now = new Date();
+    const todayStr = formatDate(now.getFullYear(), now.getMonth(), now.getDate());
+
+    let html = '';
+
+    // Empty cells before first day
+    for (let i = 0; i < startDow; i++) {
+      html += '<div class="min-h-[80px] border-b border-r border-gray-100 bg-gray-50/50"></div>';
+    }
+
+    // Day cells
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = formatDate(currentYear, currentMonth, d);
+      const isToday = dateStr === todayStr;
+
+      // Attendance records for this date
+      const dayRecords = attendance.filter((a: any) => a.date === dateStr);
+
+      let dayNumHtml: string;
+      if (isToday) {
+        dayNumHtml = '<span class="bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-medium">' + d + '</span>';
+      } else {
+        dayNumHtml = '<span class="text-xs font-medium text-gray-700">' + d + '</span>';
+      }
+
+      let recordsHtml = '';
+      for (const rec of dayRecords) {
+        const statusInfo = STATUS_SYMBOLS[rec.status];
+        if (!statusInfo) continue;
+        const subjectName = rec.subject_name || '';
+        const abbr = subjectName.substring(0, 3);
+        const statusLabel = rec.status === 'present' ? __t('attendance.present')
+          : rec.status === 'notified_absent' ? __t('attendance.notifiedAbsent')
+          : __t('attendance.absent');
+        const title = escapeHtml(subjectName) + ' — ' + escapeHtml(statusLabel);
+        recordsHtml += '<div class="flex items-center" title="' + title + '">'
+          + '<span class="' + statusInfo.class + ' text-xs">' + statusInfo.symbol + '</span>'
+          + '<span class="text-[10px] text-gray-400 ml-0.5">' + escapeHtml(abbr) + '</span>'
+          + '</div>';
+      }
+
+      html += '<div data-date="' + dateStr + '" class="min-h-[80px] border-b border-r border-gray-100 p-1.5 cursor-pointer hover:bg-blue-50/50 transition-colors">'
+        + '<div class="mb-1">' + dayNumHtml + '</div>'
+        + '<div class="space-y-0.5">' + recordsHtml + '</div>'
+        + '</div>';
+    }
+
+    // Empty cells after last day
+    const totalCells = startDow + daysInMonth;
+    const remainder = totalCells % 7;
+    if (remainder > 0) {
+      for (let i = 0; i < 7 - remainder; i++) {
+        html += '<div class="min-h-[80px] border-b border-r border-gray-100 bg-gray-50/50"></div>';
+      }
+    }
+
+    calendarGrid.innerHTML = html;
+    updateMonthLabel();
+  }
+
+  // Day click handler (delegation)
+  calendarGrid.addEventListener('click', (e) => {
+    const cell = (e.target as HTMLElement).closest('[data-date]') as HTMLElement | null;
+    if (!cell) return;
+    selectedDate = cell.dataset.date!;
+    openAttendanceModal(selectedDate);
+  });
+
+  function openAttendanceModal(date: string) {
+    if (enrollments.length === 0) return;
+
+    attendanceModalTitle.textContent = __t('attendance.recordAttendance') + ' — ' + date;
+    attendanceError.classList.add('hidden');
+
+    let html = '';
+    for (const enr of enrollments) {
+      const subjectName = enr.subject_name || '';
+      const existing = attendance.find((a: any) => a.enrollment_id === enr.id && a.date === date);
+      const existingStatus = existing ? existing.status : null;
+      const existingNote = existing ? (existing.note || '') : '';
+
+      html += '<div data-enrollment-id="' + escapeHtml(enr.id) + '" class="border border-gray-200 rounded-md p-3">'
+        + '<div class="text-sm font-medium text-gray-900 mb-2">' + escapeHtml(subjectName) + '</div>'
+        + '<div class="flex gap-1 mb-2">'
+        + statusButton('present', __t('attendance.present'), existingStatus)
+        + statusButton('notified_absent', __t('attendance.notifiedAbsent'), existingStatus)
+        + statusButton('absent', __t('attendance.absent'), existingStatus)
+        + '</div>'
+        + '<input type="text" class="note-input w-full px-2 py-1 text-sm border border-gray-300 rounded-md" placeholder="' + escapeHtml(__t('attendance.noteOptional')) + '" value="' + escapeHtml(existingNote) + '" />'
+        + '</div>';
+    }
+
+    attendanceSubjects.innerHTML = html;
+    attendanceModal.classList.remove('hidden');
+  }
+
+  function statusButton(status: string, label: string, activeStatus: string | null): string {
+    const isActive = activeStatus === status;
+    let classes: string;
+    if (isActive) {
+      if (status === 'present') classes = 'bg-green-100 border-green-400 text-green-800';
+      else if (status === 'notified_absent') classes = 'bg-orange-100 border-orange-400 text-orange-800';
+      else classes = 'bg-red-100 border-red-400 text-red-800';
+    } else {
+      classes = 'border-gray-300 text-gray-600 hover:bg-gray-50';
+    }
+    return '<button type="button" class="status-btn flex-1 px-2 py-1 text-xs border rounded-md transition-colors ' + classes + '" data-status="' + status + '">' + escapeHtml(label) + '</button>';
+  }
+
+  // Status toggle handler (delegation)
+  attendanceSubjects.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('.status-btn') as HTMLElement | null;
+    if (!btn) return;
+    const row = btn.closest('[data-enrollment-id]') as HTMLElement;
+    if (!row) return;
+
+    const status = btn.dataset.status!;
+
+    // Remove active classes from all buttons in this row
+    row.querySelectorAll('.status-btn').forEach(b => {
+      b.className = 'status-btn flex-1 px-2 py-1 text-xs border rounded-md transition-colors border-gray-300 text-gray-600 hover:bg-gray-50';
+    });
+
+    // Add active classes to clicked button
+    let activeClasses: string;
+    if (status === 'present') activeClasses = 'bg-green-100 border-green-400 text-green-800';
+    else if (status === 'notified_absent') activeClasses = 'bg-orange-100 border-orange-400 text-orange-800';
+    else activeClasses = 'bg-red-100 border-red-400 text-red-800';
+
+    btn.className = 'status-btn flex-1 px-2 py-1 text-xs border rounded-md transition-colors ' + activeClasses;
+  });
+
+  // Cancel modal
+  document.getElementById('cancel-attendance')!.addEventListener('click', () => {
+    attendanceModal.classList.add('hidden');
+  });
+
+  // Save handler
+  saveBtn.addEventListener('click', async () => {
+    attendanceError.classList.add('hidden');
+    saveBtn.disabled = true;
+    saveBtn.textContent = __t('common.saving');
+
+    try {
+      const rows = attendanceSubjects.querySelectorAll('[data-enrollment-id]');
+      for (const row of rows) {
+        const enrollmentId = (row as HTMLElement).dataset.enrollmentId;
+        const activeBtn = row.querySelector('.status-btn.bg-green-100, .status-btn.bg-orange-100, .status-btn.bg-red-100') as HTMLElement | null;
+        if (!activeBtn) continue;
+
+        const status = activeBtn.dataset.status;
+        const noteInput = row.querySelector('.note-input') as HTMLInputElement;
+        const note = noteInput ? noteInput.value.trim() : '';
+
+        const res = await fetch('/api/admin/attendance', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            enrollment_id: enrollmentId,
+            date: selectedDate,
+            status,
+            note: note || undefined,
+          }),
+        });
+
+        if (!res.ok) {
+          const body = await res.json();
+          attendanceError.textContent = body.error || __t('attendance.failedSave');
+          attendanceError.classList.remove('hidden');
+          return;
+        }
+      }
+
+      attendanceModal.classList.add('hidden');
+      await loadAttendance();
+      renderCalendar();
+    } catch {
+      attendanceError.textContent = __t('common.networkError');
+      attendanceError.classList.remove('hidden');
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = __t('common.save');
+    }
+  });
+
+  // Month navigation
+  document.getElementById('prev-month')!.addEventListener('click', () => {
+    currentMonth--;
+    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+    loadAndRender();
+  });
+
+  document.getElementById('next-month')!.addEventListener('click', () => {
+    currentMonth++;
+    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+    loadAndRender();
+  });
+
+  document.getElementById('today-btn')!.addEventListener('click', () => {
+    const now = new Date();
+    currentYear = now.getFullYear();
+    currentMonth = now.getMonth();
+    loadAndRender();
+  });
+
+  // Student change handler
+  studentSelect.addEventListener('change', async () => {
+    const studentId = studentSelect.value;
+    if (studentId) {
+      await loadEnrollments(studentId);
+      await loadAttendance();
+    } else {
+      enrollments = [];
+      attendance = [];
+    }
+    renderCalendar();
+  });
+
+  function loadAndRender() {
+    const studentId = studentSelect.value;
+    if (studentId) {
+      loadAttendance().then(() => renderCalendar());
+    } else {
+      renderCalendar();
+    }
+  }
+
+  // Init
+  loadStudents();
+  renderCalendar();
+</script>
