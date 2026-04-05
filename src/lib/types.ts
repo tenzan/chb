@@ -49,3 +49,25 @@ export interface UserWithRoles {
   created_at: string;
   updated_at: string;
 }
+
+export interface Enrollment {
+  id: string;
+  student_id: string;
+  subject_id: string;
+  student_name: string;
+  subject_name: string;
+  started_at: string;
+  ended_at: string | null;
+  created_at: string;
+}
+
+export interface AttendanceRecord {
+  id: string;
+  enrollment_id: string;
+  date: string;
+  status: 'present' | 'notified_absent' | 'absent';
+  note: string | null;
+  recorded_by: string;
+  created_at: string;
+  updated_at: string;
+}
