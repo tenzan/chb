@@ -77,20 +77,20 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
 
         <!-- Common fields -->
         <div>
-          <label for="create-name" class="block text-sm font-medium text-gray-700 mb-1">{t(locale, 'common.name')}</label>
-          <input id="create-name" type="text" required class="w-full px-3 py-2 border border-gray-300 rounded-md" />
+          <label for="create-name" class="block text-sm font-medium text-gray-700 mb-1">{t(locale, 'common.name')} <span class="text-red-500">*</span></label>
+          <input id="create-name" type="text" required class="required-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" />
         </div>
 
         <!-- Staff fields (shown for non-Student roles) -->
         <div id="create-staff-fields">
           <div class="space-y-4">
             <div>
-              <label for="create-email" class="block text-sm font-medium text-gray-700 mb-1">{t(locale, 'common.email')}</label>
-              <input id="create-email" type="email" class="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              <label for="create-email" class="block text-sm font-medium text-gray-700 mb-1">{t(locale, 'common.email')} <span class="text-red-500">*</span></label>
+              <input id="create-email" type="email" class="required-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" />
             </div>
             <div>
-              <label for="create-password" class="block text-sm font-medium text-gray-700 mb-1">{t(locale, 'common.password')}</label>
-              <input id="create-password" type="password" minlength="6" class="w-full px-3 py-2 border border-gray-300 rounded-md" />
+              <label for="create-password" class="block text-sm font-medium text-gray-700 mb-1">{t(locale, 'common.password')} <span class="text-red-500">*</span></label>
+              <input id="create-password" type="password" minlength="6" class="required-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" />
             </div>
           </div>
         </div>
@@ -106,8 +106,8 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
         <!-- Student fields -->
         <div id="create-student-fields" class="hidden space-y-4">
           <div class="relative">
-            <label class="block text-sm font-medium text-gray-700 mb-1">{t(locale, 'users.parentRequired')}</label>
-            <div class="flex items-center border border-gray-300 rounded-md bg-white">
+            <label class="block text-sm font-medium text-gray-700 mb-1">{t(locale, 'users.parentLabel')} <span class="text-red-500">*</span></label>
+            <div id="parent-search-wrapper" class="flex items-center border border-gray-300 rounded-md bg-white transition-colors">
               <input
                 id="parent-search-input"
                 type="text"
@@ -869,6 +869,57 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
     clearParentBtn.classList.add('hidden');
   });
 
+  // Clear red border when user starts filling a field
+  createForm.addEventListener('input', (e) => {
+    const target = e.target as HTMLElement;
+    if (target.classList.contains('border-red-500')) {
+      target.classList.remove('border-red-500', 'ring-1', 'ring-red-500');
+    }
+  });
+  // Clear parent wrapper red border when parent is selected
+  parentSearchInput.addEventListener('input', () => {
+    const wrapper = document.getElementById('parent-search-wrapper')!;
+    wrapper.classList.remove('border-red-500', 'ring-1', 'ring-red-500');
+  });
+
+  function highlightInvalidFields(role: string): boolean {
+    let valid = true;
+    const nameInput = document.getElementById('create-name') as HTMLInputElement;
+
+    // Name is always required
+    if (!nameInput.value.trim()) {
+      nameInput.classList.add('border-red-500', 'ring-1', 'ring-red-500');
+      nameInput.focus();
+      valid = false;
+    }
+
+    if (role === 'Student') {
+      // Parent is required
+      if (!parentIdInput.value) {
+        const wrapper = document.getElementById('parent-search-wrapper')!;
+        wrapper.classList.add('border-red-500', 'ring-1', 'ring-red-500');
+        if (valid) parentSearchInput.focus();
+        valid = false;
+      }
+    } else {
+      // Email + password required for non-students
+      const emailInput = document.getElementById('create-email') as HTMLInputElement;
+      const passwordInput = document.getElementById('create-password') as HTMLInputElement;
+      if (!emailInput.value.trim()) {
+        emailInput.classList.add('border-red-500', 'ring-1', 'ring-red-500');
+        if (valid) emailInput.focus();
+        valid = false;
+      }
+      if (!passwordInput.value) {
+        passwordInput.classList.add('border-red-500', 'ring-1', 'ring-red-500');
+        if (valid) passwordInput.focus();
+        valid = false;
+      }
+    }
+
+    return valid;
+  }
+
   createForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     createError.classList.add('hidden');
@@ -877,6 +928,10 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
     if (!selectedRole) {
       createError.textContent = __t('users.selectRole');
       createError.classList.remove('hidden');
+      return;
+    }
+
+    if (!highlightInvalidFields(selectedRole)) {
       return;
     }
 
@@ -890,13 +945,6 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
       if (selectedRole === 'Student') {
         // Create student via students API
         const parentUserId = (document.getElementById('create-parent-id') as HTMLInputElement).value;
-        if (!parentUserId) {
-          createError.textContent = __t('users.selectParentFirst');
-          createError.classList.remove('hidden');
-          createSubmitBtn.disabled = false;
-          createSubmitBtn.textContent = __t('common.create');
-          return;
-        }
         const birthday = (document.getElementById('create-birthday') as HTMLInputElement).value;
         const description = (document.getElementById('create-description') as HTMLTextAreaElement).value;
 
