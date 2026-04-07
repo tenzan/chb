@@ -34,9 +34,13 @@ export const acceptInviteSchema = z.object({
 
 export const createParentSchema = z.object({
   email: z
-    .string()
-    .email()
-    .transform((v) => v.toLowerCase()),
+    .union([
+      z.string().email().transform((v) => v.toLowerCase()),
+      z.literal(""),
+      z.undefined(),
+    ])
+    .optional()
+    .transform((v) => (v === "" ? undefined : v)),
   name: z.string().min(1),
   phone: z.string().optional(),
   note: z.string().optional(),

@@ -81,18 +81,21 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
           <input id="create-name" type="text" required class="required-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" />
         </div>
 
-        <!-- Staff fields (shown for non-Student roles) -->
-        <div id="create-staff-fields">
-          <div class="space-y-4">
-            <div>
-              <label for="create-email" class="block text-sm font-medium text-gray-700 mb-1">{t(locale, 'common.email')} <span class="text-red-500">*</span></label>
-              <input id="create-email" type="email" class="required-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" />
-            </div>
-            <div>
-              <label for="create-password" class="block text-sm font-medium text-gray-700 mb-1">{t(locale, 'common.password')} <span class="text-red-500">*</span></label>
-              <input id="create-password" type="password" minlength="6" class="required-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" />
-            </div>
-          </div>
+        <!-- Email (shown for all non-Student roles — required for staff, optional for Parent) -->
+        <div id="create-email-wrapper">
+          <label for="create-email" class="block text-sm font-medium text-gray-700 mb-1">
+            {t(locale, 'common.email')}
+            <span id="create-email-required" class="text-red-500">*</span>
+          </label>
+          <input id="create-email" type="email" class="required-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" />
+        </div>
+
+        <!-- Password (shown only for staff roles, not Parent or Student) -->
+        <div id="create-password-wrapper">
+          <label for="create-password" class="block text-sm font-medium text-gray-700 mb-1">
+            {t(locale, 'common.password')} <span class="text-red-500">*</span>
+          </label>
+          <input id="create-password" type="password" minlength="6" class="required-field w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" />
         </div>
 
         <!-- Parent fields -->
@@ -345,7 +348,7 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
     if (q) {
       filtered = filtered.filter(u =>
         u.name.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q)
+        (u.email && u.email.toLowerCase().includes(q))
       );
     }
 
@@ -416,7 +419,9 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
         if (u.note) details.push(`<div><span class="font-medium text-gray-600">${escapeHtml(__t('common.note'))}:</span> ${escapeHtml(u.note)}</div>`);
 
         if (u.parents && u.parents.length > 0) {
-          const parentNames = u.parents.map((p: any) => `${escapeHtml(p.name)} (${escapeHtml(p.email)})`).join(', ');
+          const parentNames = u.parents.map((p: any) =>
+            p.email ? `${escapeHtml(p.name)} (${escapeHtml(p.email)})` : escapeHtml(p.name)
+          ).join(', ');
           details.push(`<div><span class="font-medium text-gray-600">${escapeHtml(__t('users.parents'))}:</span> ${parentNames}</div>`);
         }
 
@@ -449,16 +454,18 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
         </tr>`;
       }
 
-      return `<tr data-user-row="${u.id}" class="group/row cursor-pointer hover:bg-gray-50${isExpanded ? ' bg-blue-50' : ''}">
-        <td class="px-4 py-3 text-sm${isExpanded ? ' font-semibold text-gray-900' : ' text-gray-900'}">${u.name ? escapeHtml(u.name) : '<span class="text-gray-400">\u2014</span>'}${statusBadge ? ' ' + statusBadge : ''}</td>
-        <td class="px-4 py-3 text-sm text-gray-500">
-          <span class="inline-flex items-center gap-1">
+      const emailCell = u.email
+        ? `<span class="inline-flex items-center gap-1">
             ${escapeHtml(u.email)}
             <button data-copy-email="${escapeHtml(u.email)}" class="opacity-0 group-hover/row:opacity-100 transition-opacity text-gray-400 hover:text-gray-600" title="${escapeHtml(__t('common.copyEmail'))}">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke-width="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke-width="2"/></svg>
             </button>
-          </span>
-        </td>
+          </span>`
+        : '<span class="text-gray-300">\u2014</span>';
+
+      return `<tr data-user-row="${u.id}" class="group/row cursor-pointer hover:bg-gray-50${isExpanded ? ' bg-blue-50' : ''}">
+        <td class="px-4 py-3 text-sm${isExpanded ? ' font-semibold text-gray-900' : ' text-gray-900'}">${u.name ? escapeHtml(u.name) : '<span class="text-gray-400">\u2014</span>'}${statusBadge ? ' ' + statusBadge : ''}</td>
+        <td class="px-4 py-3 text-sm text-gray-500">${emailCell}</td>
         <td class="px-4 py-3">
           <div class="flex gap-1 flex-wrap">${roleBadges}</div>
         </td>
@@ -759,7 +766,9 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
   });
 
   // Create User - role-aware form
-  const createStaffFields = document.getElementById('create-staff-fields')!;
+  const createEmailWrapper = document.getElementById('create-email-wrapper')!;
+  const createEmailRequiredMark = document.getElementById('create-email-required')!;
+  const createPasswordWrapper = document.getElementById('create-password-wrapper')!;
   const createParentFields = document.getElementById('create-parent-fields')!;
   const createStudentFields = document.getElementById('create-student-fields')!;
   const createEmailInput = document.getElementById('create-email') as HTMLInputElement;
@@ -771,14 +780,21 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
       const role = (radio as HTMLInputElement).value;
       const isStudent = role === 'Student';
       const isParent = role === 'Parent';
+      const isStaff = !isStudent && !isParent;
 
-      createStaffFields.classList.toggle('hidden', isStudent);
+      // Email is shown for staff (required) and parent (optional); hidden for student
+      createEmailWrapper.classList.toggle('hidden', isStudent);
+      createEmailRequiredMark.classList.toggle('hidden', isParent);
+      createEmailInput.required = isStaff;
+
+      // Password is only for staff roles
+      createPasswordWrapper.classList.toggle('hidden', !isStaff);
+      createPasswordInput.required = isStaff;
+
+      // Parent-specific fields (phone) only for parent
       createParentFields.classList.toggle('hidden', !isParent);
+      // Student-specific fields (parent search, birthday, description) only for student
       createStudentFields.classList.toggle('hidden', !isStudent);
-
-      // Email/password required for non-students
-      createEmailInput.required = !isStudent;
-      createPasswordInput.required = !isStudent;
 
       // Reset parent search when switching to student role
       if (isStudent) {
@@ -797,8 +813,10 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
     createModal.classList.add('hidden');
     createForm.reset();
     createError.classList.add('hidden');
-    // Reset field visibility
-    createStaffFields.classList.remove('hidden');
+    // Reset field visibility to default (staff role state: email + password shown and required)
+    createEmailWrapper.classList.remove('hidden');
+    createEmailRequiredMark.classList.remove('hidden');
+    createPasswordWrapper.classList.remove('hidden');
     createParentFields.classList.add('hidden');
     createStudentFields.classList.add('hidden');
     createEmailInput.required = true;
@@ -831,8 +849,11 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
       html += '<div class="px-3 py-2 text-sm text-gray-400">' + escapeHtml(__t('users.noMatchingParents')) + '</div>';
     } else {
       for (const p of parentUsers) {
+        const emailSuffix = p.email
+          ? ' <span class="text-gray-400">(' + escapeHtml(p.email) + ')</span>'
+          : '';
         html += '<div class="parent-option px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 text-gray-900" data-id="' + escapeHtml(p.id) + '">'
-          + escapeHtml(p.name) + ' <span class="text-gray-400">(' + escapeHtml(p.email) + ')</span>'
+          + escapeHtml(p.name) + emailSuffix
           + '</div>';
       }
     }
@@ -902,8 +923,10 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
         if (valid) parentSearchInput.focus();
         valid = false;
       }
+    } else if (role === 'Parent') {
+      // Parent has no required fields beyond name — email and password are both optional/hidden
     } else {
-      // Email + password required for non-students
+      // Email + password required for staff roles
       const emailInput = document.getElementById('create-email') as HTMLInputElement;
       const passwordInput = document.getElementById('create-password') as HTMLInputElement;
       if (!emailInput.value.trim()) {
@@ -972,23 +995,23 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
         // Reload all users to get full data
         createModal.classList.add('hidden');
         createForm.reset();
-        createStaffFields.classList.remove('hidden');
-        createParentFields.classList.add('hidden');
-        createStudentFields.classList.add('hidden');
-        createEmailInput.required = true;
-        createPasswordInput.required = true;
+        resetCreateFormVisibility();
         loadUsers();
       } else if (selectedRole === 'Parent') {
-        // Create parent via parents API
-        const email = createEmailInput.value;
-        const password = createPasswordInput.value;
+        // Create parent via parents API — email is optional
+        const email = createEmailInput.value.trim();
         const phone = (document.getElementById('create-phone') as HTMLInputElement).value;
 
         const res = await fetch('/api/admin/parents', {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, name, phone: phone || undefined, note: note || undefined }),
+          body: JSON.stringify({
+            email: email || undefined,
+            name,
+            phone: phone || undefined,
+            note: note || undefined,
+          }),
         });
 
         const body = await res.json();
@@ -1000,9 +1023,7 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
 
         createModal.classList.add('hidden');
         createForm.reset();
-        createStaffFields.classList.remove('hidden');
-        createParentFields.classList.add('hidden');
-        createStudentFields.classList.add('hidden');
+        resetCreateFormVisibility();
         loadUsers();
       } else {
         // Create staff user via users API
@@ -1025,6 +1046,7 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
 
         createModal.classList.add('hidden');
         createForm.reset();
+        resetCreateFormVisibility();
         loadUsers();
       }
     } catch {
@@ -1035,6 +1057,17 @@ const locale = getLocale(Astro.cookies.get('lang')?.value);
       createSubmitBtn.textContent = __t('common.create');
     }
   });
+
+  // Reset field visibility to staff defaults (email + password shown and required)
+  function resetCreateFormVisibility() {
+    createEmailWrapper.classList.remove('hidden');
+    createEmailRequiredMark.classList.remove('hidden');
+    createPasswordWrapper.classList.remove('hidden');
+    createParentFields.classList.add('hidden');
+    createStudentFields.classList.add('hidden');
+    createEmailInput.required = true;
+    createPasswordInput.required = true;
+  }
 
   // Invite User
   document.getElementById('invite-user-btn')!.addEventListener('click', () => {

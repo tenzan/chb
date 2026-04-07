@@ -31,7 +31,15 @@ export const GET: APIRoute = async ({ locals }) => {
       created_at: string;
     }>();
 
-  return new Response(JSON.stringify({ data: result.results }), {
+  // Hide placeholder emails ({id}@parent.local) from API responses — they
+  // are an internal implementation detail to satisfy the NOT NULL constraint
+  // on users.email, not real addresses.
+  const parents = (result.results || []).map((p) => ({
+    ...p,
+    email: p.email.endsWith("@parent.local") ? null : p.email,
+  }));
+
+  return new Response(JSON.stringify({ data: parents }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
@@ -61,24 +69,29 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const { email, name, phone, note } = parsed.data;
 
-  const existing = await db
-    .prepare("SELECT id FROM users WHERE email = ?")
-    .bind(email)
-    .first();
-  if (existing) {
-    return new Response(
-      JSON.stringify({ error: "User with this email already exists" }),
-      { status: 409, headers: { "Content-Type": "application/json" } }
-    );
+  // Only check for duplicates when an email is provided — parents without
+  // an email get a unique placeholder `{id}@parent.local`.
+  if (email) {
+    const existing = await db
+      .prepare("SELECT id FROM users WHERE email = ?")
+      .bind(email)
+      .first();
+    if (existing) {
+      return new Response(
+        JSON.stringify({ error: "User with this email already exists" }),
+        { status: 409, headers: { "Content-Type": "application/json" } }
+      );
+    }
   }
 
   const id = generateId();
+  const storedEmail = email ?? `${id}@parent.local`;
 
   await db
     .prepare(
       `INSERT INTO users (id, email, name, phone, note) VALUES (?, ?, ?, ?, ?)`
     )
-    .bind(id, email, name, phone || null, note || null)
+    .bind(id, storedEmail, name, phone || null, note || null)
     .run();
 
   const role = await db
@@ -96,7 +109,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     JSON.stringify({
       data: {
         id,
-        email,
+        email: email ?? null,
         name,
         phone: phone || null,
         note: note || null,

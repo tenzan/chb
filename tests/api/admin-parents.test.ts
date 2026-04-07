@@ -26,6 +26,73 @@ describe("POST /api/admin/parents", () => {
     expect(body.data.roles).toContain("Parent");
   });
 
+  it("creates parent without email", async () => {
+    await seedRoles();
+    await createTestUser({ id: "admin-1", email: "admin@test.com", name: "Admin", roles: ["Admin"] });
+
+    const ctx = createMockAPIContext({
+      db: getTestDB(),
+      user: adminUser,
+      method: "POST",
+      body: { name: "No Email Parent", phone: "555-1234" },
+    });
+    const res = await POST(ctx);
+
+    expect(res.status).toBe(201);
+    const body = await res.json() as { data: { id: string; email: string | null; name: string; phone: string | null; roles: string[] } };
+    expect(body.data.email).toBeNull();
+    expect(body.data.name).toBe("No Email Parent");
+    expect(body.data.phone).toBe("555-1234");
+    expect(body.data.roles).toContain("Parent");
+
+    // Verify the DB row has a placeholder email to satisfy the NOT NULL constraint
+    const db = getTestDB();
+    const row = await db.prepare("SELECT email FROM users WHERE id = ?").bind(body.data.id).first<{ email: string }>();
+    expect(row!.email).toMatch(/@parent\.local$/);
+  });
+
+  it("creates parent with empty string email (treated as no email)", async () => {
+    await seedRoles();
+    await createTestUser({ id: "admin-1", email: "admin@test.com", name: "Admin", roles: ["Admin"] });
+
+    const ctx = createMockAPIContext({
+      db: getTestDB(),
+      user: adminUser,
+      method: "POST",
+      body: { name: "Parent", email: "" },
+    });
+    const res = await POST(ctx);
+
+    expect(res.status).toBe(201);
+    const body = await res.json() as { data: { email: string | null } };
+    expect(body.data.email).toBeNull();
+  });
+
+  it("allows creating multiple parents without email", async () => {
+    await seedRoles();
+    await createTestUser({ id: "admin-1", email: "admin@test.com", name: "Admin", roles: ["Admin"] });
+
+    const db = getTestDB();
+
+    const ctx1 = createMockAPIContext({
+      db,
+      user: adminUser,
+      method: "POST",
+      body: { name: "Parent One" },
+    });
+    const res1 = await POST(ctx1);
+    expect(res1.status).toBe(201);
+
+    const ctx2 = createMockAPIContext({
+      db,
+      user: adminUser,
+      method: "POST",
+      body: { name: "Parent Two" },
+    });
+    const res2 = await POST(ctx2);
+    expect(res2.status).toBe(201);
+  });
+
   it("rejects duplicate email", async () => {
     await seedRoles();
     await createTestUser({ id: "admin-1", email: "admin@test.com", name: "Admin", roles: ["Admin"] });
@@ -84,9 +151,24 @@ describe("GET /api/admin/parents", () => {
     const res = await GET(ctx);
 
     expect(res.status).toBe(200);
-    const body = await res.json() as { data: Array<{ email: string }> };
+    const body = await res.json() as { data: Array<{ email: string | null }> };
     expect(body.data.length).toBe(1);
     expect(body.data[0].email).toBe("parent1@test.com");
+  });
+
+  it("hides placeholder emails for parents created without an email", async () => {
+    await seedRoles();
+    await createTestUser({ id: "admin-1", email: "admin@test.com", name: "Admin", roles: ["Admin"] });
+    await createTestUser({ id: "p-noemail", email: "p-noemail@parent.local", name: "Parent NoEmail", roles: ["Parent"] });
+
+    const ctx = createMockAPIContext({ db: getTestDB(), user: adminUser });
+    const res = await GET(ctx);
+
+    expect(res.status).toBe(200);
+    const body = await res.json() as { data: Array<{ name: string; email: string | null }> };
+    const parent = body.data.find((p) => p.name === "Parent NoEmail");
+    expect(parent).toBeDefined();
+    expect(parent!.email).toBeNull();
   });
 
   it("requires Admin role", async () => {

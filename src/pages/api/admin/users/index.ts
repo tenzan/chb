@@ -5,6 +5,10 @@ import { createUserSchema } from "../../../../lib/validation";
 import { hashPassword } from "../../../../lib/password";
 import { generateId } from "../../../../lib/id";
 
+function isPlaceholderEmail(email: string): boolean {
+  return email.endsWith("@parent.local") || email.endsWith("@student.local");
+}
+
 export const GET: APIRoute = async ({ locals }) => {
   if (!hasRole(locals.user!, "Admin")) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
@@ -45,7 +49,7 @@ export const GET: APIRoute = async ({ locals }) => {
       const roles = rolesResult.results.map((r) => r.name);
 
       // For students, fetch linked parents
-      let parents: Array<{ id: string; name: string; email: string }> = [];
+      let parents: Array<{ id: string; name: string; email: string | null }> = [];
       if (roles.includes("Student")) {
         const parentsResult = await db
           .prepare(
@@ -55,7 +59,10 @@ export const GET: APIRoute = async ({ locals }) => {
           )
           .bind(u.id)
           .all<{ id: string; name: string; email: string }>();
-        parents = parentsResult.results;
+        parents = parentsResult.results.map((p) => ({
+          ...p,
+          email: isPlaceholderEmail(p.email) ? null : p.email,
+        }));
       }
 
       // For pending users, fetch the active invite ID
@@ -70,7 +77,11 @@ export const GET: APIRoute = async ({ locals }) => {
         if (invite) inviteId = invite.id;
       }
 
-      return { ...u, roles, parents, ...(inviteId ? { inviteId } : {}) };
+      // Hide internal placeholder emails ({id}@parent.local, {id}@student.local)
+      // from API responses — they exist only to satisfy the NOT NULL constraint.
+      const displayEmail = isPlaceholderEmail(u.email) ? null : u.email;
+
+      return { ...u, email: displayEmail, roles, parents, ...(inviteId ? { inviteId } : {}) };
     })
   );
 
