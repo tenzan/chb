@@ -1,0 +1,27 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import StudentJournal from '../../components/react/journal/StudentJournal';
+import { getLocale, t } from '../../i18n';
+import { hasRole } from '../../lib/rbac';
+import { JOURNAL_ROLES } from '../../lib/journal';
+
+const locale = getLocale(Astro.cookies.get('lang')?.value);
+const canUseJournal = hasRole(Astro.locals.user!, ...JOURNAL_ROLES);
+---
+
+<DashboardLayout title={t(locale, 'nav.journal')}>
+  <Fragment slot="head">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+    />
+  </Fragment>
+
+  {canUseJournal ? (
+    <StudentJournal client:only="react" />
+  ) : (
+    <p class="text-sm text-gray-500">{t(locale, 'journal.forbidden')}</p>
+  )}
+</DashboardLayout>
