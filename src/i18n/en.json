@@ -6,6 +6,7 @@
     "subjects": "Subjects",
     "enrollments": "Enrollments",
     "attendance": "Attendance",
+    "journal": "Journal",
     "deployments": "Deployments",
     "logout": "Logout"
   },
@@ -180,5 +181,8 @@
   "lang": {
     "en": "EN",
     "ru": "RU"
+  },
+  "journal": {
+    "forbidden": "The journal is available to Admin, Personnel and Tutor roles."
   }
 }

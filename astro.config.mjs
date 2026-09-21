@@ -2,6 +2,7 @@ import { defineConfig } from "astro/config";
 import { execSync } from "node:child_process";
 import cloudflare from "@astrojs/cloudflare";
 import tailwind from "@astrojs/tailwind";
+import react from "@astrojs/react";
 
 const commitSha = (() => {
   try {
@@ -27,11 +28,18 @@ export default defineConfig({
       configPath: "wrangler.dev.toml",
     },
   }),
-  integrations: [tailwind()],
+  integrations: [tailwind(), react()],
   vite: {
     define: {
       __COMMIT_SHA__: JSON.stringify(commitSha),
       __COMMIT_SHA_FULL__: JSON.stringify(commitShaFull),
+    },
+    resolve: {
+      // React 19's default server renderer needs MessageChannel, which
+      // Cloudflare Workers lack; use the edge build in production.
+      alias: import.meta.env.PROD
+        ? { "react-dom/server": "react-dom/server.edge" }
+        : {},
     },
   },
 });

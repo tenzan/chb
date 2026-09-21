@@ -6,6 +6,7 @@
     "subjects": "Предметы",
     "enrollments": "Зачисления",
     "attendance": "Посещаемость",
+    "journal": "Журнал",
     "deployments": "Деплой",
     "logout": "Выйти"
   },
@@ -180,5 +181,8 @@
   "lang": {
     "en": "EN",
     "ru": "RU"
+  },
+  "journal": {
+    "forbidden": "Журнал доступен ролям Admin, Personnel и Tutor."
   }
 }

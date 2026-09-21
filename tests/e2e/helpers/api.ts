@@ -1,13 +1,30 @@
+import { existsSync, readFileSync } from "node:fs";
+
 const BASE_URL = "http://localhost:4322";
+
+// The dev server bootstraps the admin from .dev.vars, so log in with the same
+// values (env vars take precedence, e.g. in CI).
+function readDevVars(): Record<string, string> {
+  if (!existsSync(".dev.vars")) return {};
+  const vars: Record<string, string> = {};
+  for (const line of readFileSync(".dev.vars", "utf-8").split("\n")) {
+    const match = line.match(/^\s*([A-Z_]+)\s*=\s*"?(.*?)"?\s*$/);
+    if (match) vars[match[1]] = match[2];
+  }
+  return vars;
+}
 
 export async function bootstrapAdmin(): Promise<{
   email: string;
   password: string;
 }> {
-  return {
-    email: "askar75@gmail.com",
-    password: "draJAMU7",
-  };
+  const devVars = readDevVars();
+  const email = process.env.BOOTSTRAP_ADMIN_EMAIL ?? devVars.BOOTSTRAP_ADMIN_EMAIL;
+  const password = process.env.BOOTSTRAP_ADMIN_PASSWORD ?? devVars.BOOTSTRAP_ADMIN_PASSWORD;
+  if (!email || !password) {
+    throw new Error("BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD not set (env or .dev.vars)");
+  }
+  return { email, password };
 }
 
 export async function loginAsAdmin(): Promise<string> {

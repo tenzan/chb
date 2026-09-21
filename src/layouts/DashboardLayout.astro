@@ -16,6 +16,7 @@ const navItems = [
   { href: "/admin/subjects", label: t(locale, "nav.subjects") },
   { href: "/admin/enrollments", label: t(locale, "nav.enrollments") },
   { href: "/admin/attendance", label: t(locale, "nav.attendance") },
+  { href: "/admin/journal", label: t(locale, "nav.journal") },
   { href: "/admin/deployments", label: t(locale, "nav.deployments") },
 ];
 ---
@@ -26,6 +27,7 @@ const navItems = [
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
+    <slot name="head" />
     <script define:vars={{ translations }}>
       const __i18n = JSON.parse(translations);
       window.__i18n = __i18n;

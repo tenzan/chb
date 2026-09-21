@@ -42,8 +42,9 @@ src/
     api/                 # API routes (Astro APIRoute handlers)
       auth/              # login, logout, me
       admin/             # users, invites, parents, students, deployments
+      journal/           # student journal: students, lessons, groups, topics
     admin/               # Admin pages (.astro)
-  components/react/      # React components
+  components/react/      # React components (journal/ — mounted client:only on /admin/journal)
   layouts/               # DashboardLayout, PublicLayout
 tests/
   setup/                 # test-env (Miniflare), mock-context, seed helpers
